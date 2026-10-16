@@ -72,9 +72,9 @@ const take = k => !!PR[k];
 // ---------- 招式表 ----------
 // box: [前緣起, 前緣止, 上, 下]（相對腳底、朝向）；arc: 刀光 半徑/起訖角/高度
 const ATK = {
-  L1: { dur: .25, a0: .05, a1: .11, dmg: 9, brk: 8, kb: 70, stop: .03, shake: 2, lunge: 95, box: [2, 46, -36, -4], arc: [30, -1.25, 1.05, -19], next: 'L2', pitch: 1 },
-  L2: { dur: .25, a0: .05, a1: .11, dmg: 10, brk: 8, kb: 70, stop: .03, shake: 2, lunge: 95, box: [2, 46, -36, -4], arc: [30, 1.05, -1.2, -21], next: 'L3', pitch: 1.1 },
-  L3: { dur: .3, a0: .06, a1: .13, dmg: 12, brk: 10, kb: 90, stop: .04, shake: 3, lunge: 115, box: [0, 50, -42, -2], arc: [35, -1.7, 1.35, -19], next: 'L4', pitch: .95 },
+  L1: { dur: .25, a0: .05, a1: .11, dmg: 9, brk: 8, kb: 120, stop: .03, shake: 3, lunge: 95, box: [2, 46, -36, -4], arc: [30, -1.25, 1.05, -19], next: 'L2', pitch: 1 },
+  L2: { dur: .25, a0: .05, a1: .11, dmg: 10, brk: 8, kb: 120, stop: .03, shake: 3, lunge: 95, box: [2, 46, -36, -4], arc: [30, 1.05, -1.2, -21], next: 'L3', pitch: 1.1 },
+  L3: { dur: .3, a0: .06, a1: .13, dmg: 12, brk: 10, kb: 150, stop: .04, shake: 4, lunge: 115, box: [0, 50, -42, -2], arc: [35, -1.7, 1.35, -19], next: 'L4', pitch: .95 },
   L4: { dur: .5, a0: .13, a1: .21, dmg: 24, brk: 20, kb: 340, kby: -170, stop: .08, shake: 8, lunge: 170, box: [-4, 58, -46, 0], arc: [44, -2.5, 1.45, -21], fin: true, pitch: .75 },
   H: { dur: .44, a0: .1, a1: .18, dmg: 16, brk: 14, kb: 25, kby: -430, stop: .05, shake: 5, lunge: 50, box: [-2, 46, -64, 0], arc: [40, 1.7, -2.0, -14], launch: true, pitch: .8 },
   A1: { air: true, dur: .22, a0: .04, a1: .1, dmg: 8, brk: 7, kb: 45, kby: -210, stop: .03, shake: 2, lunge: 45, box: [0, 46, -38, 2], arc: [30, -1.2, 1.1, -18], next: 'A2', pitch: 1.15 },
@@ -86,8 +86,8 @@ const ATK = {
 
 // ---------- 玩家 ----------
 function newPlayer() {
-  return { x: 200, y: FLOOR, vx: 0, vy: 0, face: 1, ground: true, hp: 100, max: 100, atk: null, queue: null, last: null, chainT: 0,
-    airJumps: 1, airAtk: 0, dodgeT: 0, dodgeCD: 0, dodgeDir: 1, parryT: 0, parryCD: 0, parryLag: 0, hurtT: 0, inv: 0, slam: false,
+  return { x: 200, y: FLOOR, w: 14, h: 36, vx: 0, vy: 0, face: 1, ground: true, hp: 100, max: 100, atk: null, queue: null, last: null, chainT: 0,
+    airJumps: 1, airAtk: 0, recT: 0, recV: 0, dodgeT: 0, dodgeCD: 0, dodgeDir: 1, parryT: 0, parryCD: 0, parryLag: 0, hurtT: 0, inv: 0, slam: false,
     exec: null, ghosts: [], run: 0, scarf: [] };
 }
 const pBox = () => ({ x: P.x - 7, y: P.y - 36, w: 14, h: 36 });
@@ -108,7 +108,7 @@ function startAtk(name) {
 
 function updPlayer(dt) {
   const dir = (IN.r ? 1 : 0) - (IN.l ? 1 : 0);
-  P.dodgeCD -= dt; P.parryCD -= dt; P.parryT -= dt; P.parryLag -= dt; P.hurtT -= dt; P.inv -= dt; P.chainT -= dt;
+  P.dodgeCD -= dt; P.parryCD -= dt; P.parryT -= dt; P.parryLag -= dt; P.hurtT -= dt; P.inv -= dt; P.chainT -= dt; P.recT -= dt;
   if (P.hp <= 0) { P.vx *= .9; P.vy += G * dt; P.y = Math.min(FLOOR, P.y + P.vy * dt); P.x += P.vx * dt; return; }
 
   const busy = P.hurtT > 0 || P.parryLag > 0;
@@ -159,12 +159,23 @@ function updPlayer(dt) {
   else if (P.ground) { P.vx = dir * RUN; if (dir) P.face = dir; }
   else { P.vx += (dir * RUN - P.vx) * Math.min(1, dt * 10); if (dir) P.face = dir; }
 
+  if (P.recT > 0 && P.dodgeT <= 0) P.vx += P.recV;     // 命中反作用力
   // 垂直
   let gs = 1;
   if (P.atk && P.atk.d.air) gs = P.atk.d.pogo ? 1 : .55;
   if (P.dodgeT > 0 && !P.ground) gs = .35;
   if (!P.slam) P.vy += G * gs * dt;
   P.y += P.vy * dt; P.x = clamp(P.x + P.vx * dt, 14, AW - 14);
+  if (P.dodgeT <= 0 && !P.exec) {                        // 身體碰撞：走不進敵人身體裡（閃避可以穿過）
+    for (const e of enemies) {
+      if (e.dead || e.state === 'spawn' || e.state === 'air') continue;
+      const min = e.w / 2 + P.w / 2 - 2, dx = P.x - e.x;
+      if (Math.abs(dx) < min && P.y > e.y - e.h && P.y - P.h < e.y) {
+        const push = (min - Math.abs(dx)) * (sgn(dx) || -P.face);
+        P.x = clamp(P.x + push * .7, 14, AW - 14); e.x = clamp(e.x - push * .3, 16, AW - 16);
+      }
+    }
+  }
   const wasAir = !P.ground;
   if (P.y >= FLOOR) {
     P.y = FLOOR;
@@ -261,7 +272,10 @@ function hitEnemy(e, d, dir, noStop) {
   combo++; comboT = 2.2; best = Math.max(best, combo);
   if (tut) { if (d === ATK.L4) tut.l4 = true; if (d.launch) tut.launched = true; if (d.air) tut.airHit = true; if (d.slam) tut.slam = true; }
   const ex = e.x - dir * e.w * .2, ey = e.y - e.h * .55;
-  sparks(ex, ey, dir, d.fin ? 14 : 8, d.fin ? 1.6 : 1);
+  sparks(ex, ey, dir, d.fin ? 16 : 10, d.fin ? 1.6 : 1.1);
+  fx.push({ k: 'impact', x: ex, y: ey, t: 0, life: d.fin ? .18 : .12, r: d.fin ? 30 : 18, dir, rot: rnd(0, 3.14) });
+  e.sq = e.sqMax = d.fin ? .22 : .14;
+  if (!noStop) { P.recT = .09; P.recV = -dir * (d.fin ? 60 : 150); }       // 刀的反作用力（空洞騎士的 recoil）
   pop(e.x + rnd(-6, 6), e.y - e.h - 6, dmg, broken ? '#ffd06a' : '#fff', d.fin ? 1.3 : 1);
   if (!noStop) { hitstop = Math.max(hitstop, d.stop); kick(dir, d.kby && d.kby < -300 ? -1 : 0, d.shake); }
   if (d.fin) { zoom = .045; ring(ex, ey, '#fff', 34); }
@@ -289,7 +303,7 @@ function killEnemy(e, dir, byExec) {
 }
 
 function updEnemy(e, dt) {
-  e.t -= dt; e.flash -= dt; e.sinceHit += dt; e.jug -= dt; e.idle += dt;
+  e.t -= dt; e.flash -= dt; e.sinceHit += dt; e.jug -= dt; e.idle += dt; if (e.sq > 0) e.sq -= dt;
   if (e.shakeT > 0) e.shakeT -= dt;
   if (e.sinceHit > 3 && e.state !== 'broken') e.brk = Math.min(e.brkMax, e.brk + e.brkMax * .08 * dt);
   const dx = P.x - e.x, dist = Math.abs(dx), brute = e.type === 'brute';
@@ -659,6 +673,9 @@ function drawEnemy(e) {
   if (e.state === 'spawn') { ctx.globalAlpha = clamp(1 - e.t / .7, 0, 1); }
   const jx = e.shakeT > 0 ? rnd(-2, 2) : 0;
   ctx.save(); ctx.translate(jx, 0);
+  if (e.sq > 0) {                                         // 被打的瞬間壓扁拉長
+    const k = e.sq / (e.sqMax || .14); ctx.translate(e.x, e.y); ctx.scale(1 + .3 * k, 1 - .22 * k); ctx.translate(-e.x, -e.y);
+  }
   drawEnemyShape(e, e.wob + T * 3, e.state, e.flash > 0);
   ctx.restore(); ctx.globalAlpha = 1;
   if (e.state === 'wind') {
@@ -689,6 +706,16 @@ function drawEnemy(e) {
 function drawFx() {
   for (const f of fx) {
     const k = f.t / f.life;
+    if (f.k === 'impact') {
+      const a = 1 - k, R = f.r * (.5 + k * .9);
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot); ctx.globalAlpha = a;
+      ctx.fillStyle = '#fff'; ctx.shadowColor = '#9fe8ff'; ctx.shadowBlur = 14;
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) { const ang = i * Math.PI / 2, L = i % 2 ? R : R * 1.7, W = 2.2 * a + .6; ctx.moveTo(Math.cos(ang) * L, Math.sin(ang) * L); ctx.lineTo(Math.cos(ang + 1.57) * W, Math.sin(ang + 1.57) * W); ctx.lineTo(Math.cos(ang - 1.57) * W, Math.sin(ang - 1.57) * W); }
+      ctx.fill(); ctx.shadowBlur = 0;
+      ctx.globalAlpha = a * .5; ctx.fillStyle = '#9fe8ff'; ctx.beginPath(); ctx.arc(0, 0, R * .45, 0, 6.283); ctx.fill();
+      ctx.restore(); continue;
+    }
     if (f.k === 'ring') { ctx.globalAlpha = 1 - k; ctx.strokeStyle = f.c; ctx.lineWidth = 3 * (1 - k) + .5; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (.3 + k), 0, 6.283); ctx.stroke(); }
     else if (f.k === 'rift') {
       const o = Math.sin(Math.min(1, k * 1.4) * Math.PI) ;
@@ -923,7 +950,7 @@ function nz(d, v, type, f0, f1, q = 1, delay = 0) {
 }
 const SFX = {
   swing: (p = 1, s = 1) => nz(.13 * s, .22 * s, 'bandpass', 700 * p, 3400 * p, 1.2),
-  hit: (p = 1, s = 1) => { osc('sine', 170 * p, 42, .14 * s, .55 * Math.min(1.4, s)); nz(.07 * s, .45, 'lowpass', 3000, 400); osc('square', 2200 * p, 900, .025, .08); if (s > 1.3) nz(.25, .25, 'lowpass', 900, 120); },
+  hit: (p = 1, s = 1) => { osc('sine', 190 * p, 38, .16 * s, .8 * Math.min(1.4, s)); nz(.05 * s, .6, 'highpass', 1800, 6000); nz(.09 * s, .5, 'lowpass', 2600, 300); osc('square', 2400 * p, 700, .03, .1); if (s > 1.3) nz(.28, .3, 'lowpass', 900, 120); },
   clang: () => { osc('triangle', 1320, 1250, .5, .22); osc('square', 1975, 1900, .35, .07); osc('sine', 2640, 2600, .6, .1); nz(.12, .35, 'highpass', 3000, 6000); osc('sine', 120, 50, .15, .4); },
   dodge: () => nz(.16, .18, 'bandpass', 2400, 600, .8),
   jump: (p = 1) => nz(.08, .1, 'bandpass', 900 * p, 1800 * p),
