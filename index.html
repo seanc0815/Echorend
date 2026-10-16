@@ -53,6 +53,7 @@ const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in wind
 if (isTouch) document.body.classList.add('touch');
 
 let K = 1, CSS = 1;
+const BRK_HIT = .3;              // 普通攻擊削界限的倍率
 function resize() {
   CSS = Math.min(innerWidth / VW, innerHeight / VH); K = CSS * (devicePixelRatio || 1);
   cv.width = Math.round(VW * K); cv.height = Math.round(VH * K);
@@ -244,11 +245,15 @@ function updExec(dt) {
     X.done = true; gray = 0; flash = .7; sfx('sheath'); setTimeout(() => sfx('boom'), 60);
     hitstop = .14; kick(-P.face, 0, 14); zoom = .08;
     stats.exec++; if (tut) tut.exec = true; combo += 1; comboT = 3;
-    const dmg = e.type === 'aria' ? 9999 : e.type === 'brute' ? Math.round(e.max * .45) : 999;
-    e.hp -= dmg; pop(e.x, e.y - e.h - 8, dmg > 900 ? '斷' : dmg, '#ff4a5a', 1.6);
-    if (e.type === 'aria') { e.dead = true; e.subdued = true; shards(e.x, e.y - e.h / 2, 40, '#cfe9ff'); ring(e.x, e.y - e.h / 2, '#fff', 60); if (story) story.ev = 'ariaDone'; }
-    else if (e.hp <= 0) killEnemy(e, -P.face, true);
-    else { e.brk = e.brkMax; e.state = 'down'; e.t = 1.1; e.vx = -P.face * 120; e.flash = .2; shards(e.x, e.y - e.h / 2, 30, '#ff4a5a'); }
+    // 界限分段：小怪只有一段 → 直接斷；菁英／Boss 每次斷響砍掉一段，最後一段才結束
+    e.segs = (e.segs || 1) - 1;
+    const last = e.segs <= 0;
+    const dmg = last ? 9999 : Math.round(e.max / (e.segsMax || 1));
+    if (last) pop(e.x, e.y - e.h - 8, '斷', '#ff4a5a', 1.6);
+    else { e.hp = Math.max(1, e.hp - dmg); pop(e.x, e.y - e.h - 8, dmg, '#ff4a5a', 1.6); text(`界限 剩 ${e.segs} 段`, e.x, e.y - e.h - 26, '#ffd0d6'); }
+    if (last && e.type === 'aria') { e.dead = true; e.subdued = true; shards(e.x, e.y - e.h / 2, 40, '#cfe9ff'); ring(e.x, e.y - e.h / 2, '#fff', 60); if (story) story.ev = 'ariaDone'; }
+    else if (last) { e.hp = 0; killEnemy(e, -P.face, true); }
+    else { e.brk = e.brkMax; e.state = e.fly ? 'stagger' : 'down'; e.t = 1.1; e.vx = -P.face * 120; e.flash = .2; shards(e.x, e.y - e.h / 2, 30, '#ff4a5a'); }
   }
   if (X.t >= 1.3) { P.exec = null; P.inv = .5; letter = 0; }
 }
@@ -261,7 +266,7 @@ function spawnX(side) {        // 玩家貼牆時，那一側放不下 → 改�
 }
 function spawn(type, x) {
   const e = type === 'brute'
-    ? { type, w: 44, h: 52, hp: 260, max: 260, brk: 120, brkMax: 120, armor: true, spd: 48 }
+    ? { type, w: 44, h: 52, hp: 260, max: 260, brk: 120, brkMax: 120, armor: true, spd: 48, segs: 2, segsMax: 2 }
     : { type, w: 26, h: 24, hp: 48, max: 48, brk: 34, brkMax: 34, armor: false, spd: rnd(70, 90) };
   Object.assign(e, { x, y: FLOOR, vx: 0, vy: 0, face: -1, ground: true, state: 'spawn', t: .7, flash: 0, jug: 0, idle: rnd(0, 1), atk: null, atkHit: false, sinceHit: 9, dead: false, wob: Math.random() * 9 });
   enemies.push(e);
@@ -274,7 +279,7 @@ function hitEnemy(e, d, dir, noStop) {
   const broken = e.state === 'broken';
   let dmg = Math.round(d.dmg * (broken ? 1.6 : 1) * rnd(.9, 1.1));
   e.hp -= dmg; if (e.minHp != null && e.hp < e.minHp) e.hp = e.minHp; e.sinceHit = 0; e.flash = .09;
-  if (!broken) e.brk = Math.max(0, e.brk - d.brk);
+  if (!broken) e.brk = Math.max(0, e.brk - d.brk * BRK_HIT);          // 普通攻擊只削三成（Gabi 2026-10-17：斷響太強）
   combo++; comboT = 2.2; best = Math.max(best, combo);
   if (tut) { if (d === ATK.L4) tut.l4 = true; if (d.launch) tut.launched = true; if (d.air) tut.airHit = true; if (d.slam) tut.slam = true; }
   const ex = e.x - dir * e.w * .2, ey = e.y - e.h * .55;
@@ -364,7 +369,7 @@ function playerHit(e) {
   if (P.parryT > 0 && parryable) {
     stats.parry++; if (tut) tut.parried = true; P.parryT = 0; P.parryLag = 0; P.parryCD = 0; P.inv = .35;
     e.state = 'stagger'; e.t = e.type === 'brute' ? 1.1 : .9; e.vx = -e.face * 160; e.atk = null;
-    e.brk = Math.max(0, e.brk - (e.type === 'brute' ? 45 : 30)); e.flash = .12;
+    e.brk = Math.max(0, e.brk - (e.type === 'brute' || e.type === 'aria' ? 50 : 34)); e.flash = .12;   // 彈反：小怪一次破
     hitstop = .12; kick(-e.face, 0, 7); flash = .35; zoom = .05;
     const cx = (P.x + e.x) / 2;
     sparks(cx, P.y - 22, -e.face, 22, 2.2); ring(cx, P.y - 22, '#fff6c8', 40);
@@ -376,7 +381,7 @@ function playerHit(e) {
     if (tut && P.dodgeT > 0) tut.dodged = true;
     if (P.dodgeT > DODGE - .17 && slowT <= 0) {
       stats.perfect++; slowT = 1.1; text('完美閃避', P.x, P.y - 52, '#9fe8ff'); sfx('perfect');
-      e.brk = Math.max(0, e.brk - 15); P.inv = .5;
+      e.brk = Math.max(0, e.brk - (e.type === 'brute' || e.type === 'aria' ? 30 : 20)); P.inv = .5;
     }
     return;
   }
@@ -395,7 +400,7 @@ const TUT = [
   { title: '第 3 課　挑空', text: () => `${KL('hvy')} 挑空 → 空中 ${KL('atk')} 連砍 → 空中 ${KL('hvy')} 下砸`, spawn: 'dummy', check: () => tut.launched && tut.airHit && tut.slam },
   { title: '第 4 課　閃避', text: () => `敵人出手時按 ${KL('dodge')} 閃過去；剛好閃過會進入慢動作`, spawn: 'grunt', check: () => tut.dodged },
   { title: '第 5 課　彈反', text: () => `敵人頭上出現紅色 ! 時按 ${KL('parry')}，彈開牠的攻擊`, spawn: 'grunt', check: () => tut.parried },
-  { title: '第 6 課　斷響', text: () => `攻擊會削減白色「界限條」；打空後靠近按 ${KL('hvy')}，一刀斬斷`, spawn: 'brute', check: () => tut.exec },
+  { title: '第 6 課　斷響', text: () => `彈反、完美閃避最能削減白色「界限條」；打空後靠近按 ${KL('hvy')}，一刀斬斷`, spawn: 'brute', check: () => tut.exec },
 ];
 function startTutorial(step = 0) {
   tut = { step: step - 1, wait: 0, moved: false, jumped: false, djumped: false, l4: false, launched: false, airHit: false, slam: false, dodged: false, parried: false, exec: false };
@@ -410,7 +415,7 @@ function tutSpawn() {
   e.hp = e.max = 400;                                   // 練習用：不會被打死
   if (L.spawn === 'dummy') { e.passive = true; e.brk = e.brkMax = 9999; }
   if (L.spawn === 'grunt') { e.brk = e.brkMax = 9999; e.t = .2; }
-  if (L.spawn === 'brute') { e.brk = e.brkMax = 60; }
+  if (L.spawn === 'brute') { e.brk = e.brkMax = 60; e.segs = e.segsMax = 1; }
 }
 function nextTut() {
   tut.step++;
@@ -725,6 +730,10 @@ function drawEnemy(e) {
     ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(bx - 1, by - 1, bw + 2, 6);
     ctx.fillStyle = '#ff3a4a'; ctx.fillRect(bx, by, bw * Math.max(0, e.hp) / e.max, 2);
     ctx.fillStyle = e.state === 'broken' ? '#ff4a5a' : '#f5ecd0'; ctx.fillRect(bx, by + 3, bw * (e.state === 'broken' ? 1 : e.brk / e.brkMax), 1.6);
+    if ((e.segsMax || 1) > 1) for (let i = 0; i < e.segsMax; i++) {        // 界限段數
+      const x = bx + bw + 4 + i * 5, y = by + 2; ctx.fillStyle = i < e.segs ? '#f5ecd0' : 'rgba(255,255,255,.18)';
+      ctx.beginPath(); ctx.moveTo(x, y - 2); ctx.lineTo(x + 2, y); ctx.lineTo(x, y + 2); ctx.lineTo(x - 2, y); ctx.fill();
+    }
   }
 }
 function drawFx() {
@@ -907,7 +916,7 @@ function spawnStory(type, x, side) {
   const e = { type, x, y: FLOOR, vx: 0, vy: 0, face: side != null ? -side : -1, ground: true, state: 'spawn', t: .7, flash: 0, jug: 0, idle: 0, atk: null, atkHit: false, sinceHit: 9, dead: false, wob: Math.random() * 9 };
   if (type === 'spike') Object.assign(e, { w: 18, h: 14, hp: 30, max: 30, brk: 20, brkMax: 20, spd: 60, ai: aiSpike, dmg: 7 });
   if (type === 'xialin') Object.assign(e, { w: 16, h: 36, hp: 140, max: 140, minHp: 70, brk: 80, brkMax: 80, spd: 130, ai: aiXialin, dmg: 12, name: '夏凜' });
-  if (type === 'aria') Object.assign(e, { w: 18, h: 40, hp: 300, max: 300, minHp: 1, brk: 90, brkMax: 90, spd: 0, ai: aiAria, dmg: 14, fly: true, armor: true, name: '一號容器・艾莉亞', y: FLOOR - 30, phase: 1 });
+  if (type === 'aria') Object.assign(e, { w: 18, h: 40, hp: 300, max: 300, minHp: 1, brk: 90, brkMax: 90, segs: 3, segsMax: 3, spd: 0, ai: aiAria, dmg: 14, fly: true, armor: true, name: '一號容器・艾莉亞', y: FLOOR - 30, phase: 1 });
   enemies.push(e);
   fx.push({ k: 'rift', x, t: 0, life: .9, h: e.h + 20 }); sfx('spawn');
   return e;
@@ -1218,6 +1227,7 @@ function drawStory() {
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(VW / 2 - 101, VH - 20, 202, 7);
     ctx.fillStyle = boss.type === 'aria' ? '#ff6a9a' : '#9fe8ff'; ctx.fillRect(VW / 2 - 100, VH - 19, 200 * Math.max(0, boss.hp) / boss.max, 5);
     if (boss.minHp > 1) { ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(VW / 2 - 100 + 200 * boss.minHp / boss.max, VH - 21, 1, 9); }
+    if ((boss.segsMax || 1) > 1) for (let i = 0; i < boss.segsMax; i++) { const x = VW / 2 + 108 + i * 8, y = VH - 16; ctx.fillStyle = i < boss.segs ? '#f5ecd0' : 'rgba(255,255,255,.2)'; ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x + 3, y); ctx.lineTo(x, y + 3); ctx.lineTo(x - 3, y); ctx.fill(); }
     ctx.font = '600 8px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#e8d8e0'; ctx.fillText(boss.name, VW / 2, VH - 26);
   }
   const u = story.ui; if (!u) return;
