@@ -64,7 +64,7 @@ let scene = 'title', paused = false, T = 0;
 let P, enemies = [], parts = [], fx = [], texts = [];
 let hitstop = 0, slowT = 0, shake = 0, shakeX = 0, shakeY = 0, zoom = 0, flash = 0, gray = 0, letter = 0;
 let cam = 0, wave = 0, waveT = 0, waveBanner = 0, combo = 0, comboT = 0, best = 0, deadT = 0;
-let stats = { parry: 0, perfect: 0, exec: 0, kills: 0 }, pending = [];
+let stats = { parry: 0, perfect: 0, exec: 0, kills: 0 }, pending = [], tut = null;
 const KB = {}, TOUCH = {}, IN = {};
 let Q = {}, PR = {};
 const take = k => !!PR[k];
@@ -76,7 +76,7 @@ const ATK = {
   L2: { dur: .25, a0: .05, a1: .11, dmg: 10, brk: 8, kb: 70, stop: .055, shake: 2, lunge: 95, box: [2, 46, -36, -4], arc: [30, 1.05, -1.2, -21], next: 'L3', pitch: 1.1 },
   L3: { dur: .3, a0: .06, a1: .13, dmg: 12, brk: 10, kb: 90, stop: .07, shake: 3, lunge: 115, box: [0, 50, -42, -2], arc: [35, -1.7, 1.35, -19], next: 'L4', pitch: .95 },
   L4: { dur: .5, a0: .13, a1: .21, dmg: 24, brk: 20, kb: 340, kby: -170, stop: .13, shake: 8, lunge: 170, box: [-4, 58, -46, 0], arc: [44, -2.5, 1.45, -21], fin: true, pitch: .75 },
-  H: { dur: .44, a0: .1, a1: .18, dmg: 16, brk: 14, kb: 25, kby: -650, stop: .09, shake: 5, lunge: 50, box: [-2, 46, -64, 0], arc: [40, 1.7, -2.0, -14], launch: true, pitch: .8 },
+  H: { dur: .44, a0: .1, a1: .18, dmg: 16, brk: 14, kb: 25, kby: -430, stop: .09, shake: 5, lunge: 50, box: [-2, 46, -64, 0], arc: [40, 1.7, -2.0, -14], launch: true, pitch: .8 },
   A1: { air: true, dur: .22, a0: .04, a1: .1, dmg: 8, brk: 7, kb: 45, kby: -210, stop: .05, shake: 2, lunge: 45, box: [0, 46, -38, 2], arc: [30, -1.2, 1.1, -18], next: 'A2', pitch: 1.15 },
   A2: { air: true, dur: .22, a0: .04, a1: .1, dmg: 8, brk: 7, kb: 45, kby: -210, stop: .05, shake: 2, lunge: 45, box: [0, 46, -38, 2], arc: [30, 1.1, -1.2, -20], next: 'A3', pitch: 1.25 },
   A3: { air: true, dur: .34, a0: .07, a1: .14, dmg: 13, brk: 11, kb: 230, kby: -60, stop: .09, shake: 5, lunge: 70, box: [-2, 52, -42, 4], arc: [38, -2.2, 1.3, -18], fin: true, pitch: .9 },
@@ -136,8 +136,8 @@ function updPlayer(dt) {
     else if (P.airAtk < 4) startAtk(P.chainT > 0 && P.last && ATK[P.last].air && ATK[P.last].next ? ATK[P.last].next : 'A1');
   }
   if (take('jump') && !busy && !P.slam) {
-    if (P.ground) { P.vy = -560; P.ground = false; P.atk = null; sfx('jump', 1); dust(P.x, FLOOR, 6); }
-    else if (P.airJumps > 0) { P.airJumps--; P.vy = -480; P.atk = null; sfx('jump', 1.3); ring(P.x, P.y, '#9fe8ff', 18); }
+    if (P.ground) { P.vy = -560; P.ground = false; P.atk = null; sfx('jump', 1); dust(P.x, FLOOR, 6); if (tut) tut.jumped = true; }
+    else if (P.airJumps > 0) { P.airJumps--; P.vy = -480; P.atk = null; sfx('jump', 1.3); ring(P.x, P.y, '#9fe8ff', 18); if (tut) tut.djumped = true; }
   }
 
   // 水平移動
@@ -194,7 +194,7 @@ function slamImpact() {
   for (const e of enemies) {
     if (e.dead || e.state === 'spawn') continue;
     if (Math.abs(e.x - P.x) < 72 && Math.abs(e.y - FLOOR) < 80) {
-      hitEnemy(e, { dmg: 20, brk: 16, kb: 60, kby: e.y < FLOOR - 4 ? 420 : -330, stop: 0, shake: 0 }, sgn(e.x - P.x) || P.face, true);
+      hitEnemy(e, { dmg: 20, brk: 16, kb: 60, kby: e.y < FLOOR - 4 ? 420 : -330, stop: 0, shake: 0, slam: true }, sgn(e.x - P.x) || P.face, true);
     }
   }
 }
@@ -219,7 +219,7 @@ function updExec(dt) {
   if (X.cut && !X.done && X.t >= .95) {
     X.done = true; gray = 0; flash = .7; sfx('sheath'); setTimeout(() => sfx('boom'), 60);
     hitstop = .14; kick(-P.face, 0, 14); zoom = .08;
-    stats.exec++; combo += 1; comboT = 3;
+    stats.exec++; if (tut) tut.exec = true; combo += 1; comboT = 3;
     const dmg = e.type === 'brute' ? Math.round(e.max * .45) : 999;
     e.hp -= dmg; pop(e.x, e.y - e.h - 8, dmg > 900 ? '斷' : dmg, '#ff4a5a', 1.6);
     if (e.hp <= 0) killEnemy(e, -P.face, true);
@@ -251,6 +251,7 @@ function hitEnemy(e, d, dir, noStop) {
   e.hp -= dmg; e.sinceHit = 0; e.flash = .09;
   if (!broken) e.brk = Math.max(0, e.brk - d.brk);
   combo++; comboT = 2.2; best = Math.max(best, combo);
+  if (tut) { if (d === ATK.L4) tut.l4 = true; if (d.launch) tut.launched = true; if (d.air) tut.airHit = true; if (d.slam) tut.slam = true; }
   const ex = e.x - dir * e.w * .2, ey = e.y - e.h * .55;
   sparks(ex, ey, dir, d.fin ? 14 : 8, d.fin ? 1.6 : 1);
   pop(e.x + rnd(-6, 6), e.y - e.h - 6, dmg, broken ? '#ffd06a' : '#fff', d.fin ? 1.3 : 1);
@@ -290,7 +291,7 @@ function updEnemy(e, dt) {
     case 'chase':
       e.face = sgn(dx) || e.face;
       if (dist > reach) e.vx = e.face * e.spd; else e.vx *= .8;
-      if (dist <= reach + 6 && e.t <= 0 && P.hp > 0) {
+      if (!e.passive && dist <= reach + 6 && e.t <= 0 && P.hp > 0) {
         if (brute) { e.state = 'wind'; e.atk = Math.random() < .6 ? 'smash' : 'sweep'; e.t = e.atk === 'smash' ? .78 : .62; }
         else { e.state = 'wind'; e.atk = 'bite'; e.t = .55; }
         e.vx = 0; sfx('tell', e.atk === 'sweep' ? 1.4 : 1);
@@ -311,7 +312,7 @@ function updEnemy(e, dt) {
     case 'stagger': e.vx *= .85; if (e.t <= 0) { e.state = 'chase'; e.t = .4; } break;
     case 'broken': e.vx *= .85; if (e.t <= 0) { e.state = 'chase'; e.brk = e.brkMax * .5; e.t = .3; } break;
   }
-  const gs = e.jug > 0 ? .45 : 1;
+  const gs = e.jug > 0 ? .6 : 1;    // 挑空後慢一點落下；-430 → 最高點約 85px，和玩家跳躍高度相當（原本 -650 會飛出畫面）
   if (!e.ground || e.vy < 0) { e.vy += G * gs * dt; e.y += e.vy * dt; }
   if (e.y >= FLOOR) {
     if (!e.ground) {
@@ -331,7 +332,7 @@ function playerHit(e) {
   if (P.exec) return;
   const parryable = e.atk !== 'sweep';
   if (P.parryT > 0 && parryable) {
-    stats.parry++; P.parryT = 0; P.parryLag = 0; P.parryCD = 0; P.inv = .35;
+    stats.parry++; if (tut) tut.parried = true; P.parryT = 0; P.parryLag = 0; P.parryCD = 0; P.inv = .35;
     e.state = 'stagger'; e.t = e.type === 'brute' ? 1.1 : .9; e.vx = -e.face * 160; e.atk = null;
     e.brk = Math.max(0, e.brk - (e.type === 'brute' ? 45 : 30)); e.flash = .12;
     hitstop = .17; kick(-e.face, 0, 7); flash = .35; zoom = .05;
@@ -342,6 +343,7 @@ function playerHit(e) {
     return;
   }
   if (P.dodgeT > 0 || P.inv > 0) {
+    if (tut && P.dodgeT > 0) tut.dodged = true;
     if (P.dodgeT > DODGE - .17 && slowT <= 0) {
       stats.perfect++; slowT = 1.1; text('完美閃避', P.x, P.y - 52, '#9fe8ff'); sfx('perfect');
       e.brk = Math.max(0, e.brk - 15); P.inv = .5;
@@ -354,6 +356,66 @@ function playerHit(e) {
   hitstop = .1; kick(e.face, 0, 7); flash = .25; combo = 0; comboT = 0;
   sparks(P.x, P.y - 20, e.face, 10, 1.2); sfx('hurt');
   if (P.hp <= 0) { deadT = 0; slowT = 1.2; sfx('boom'); }
+}
+
+// ---------- 教學（Gabi 2026-10-16：一步步、給實戰場景；正式版技能改成逐步解鎖）----------
+const TUT = [
+  { title: '第 1 課　移動與跳躍', text: () => `${KL('l')} ${KL('r')} 移動　${KL('jump')} 跳，空中再按一次＝二段跳`, check: () => tut.moved && tut.jumped && tut.djumped },
+  { title: '第 2 課　連段', text: () => `${KL('atk')} 連打四段，第四刀會把敵人擊飛`, spawn: 'dummy', check: () => tut.l4 },
+  { title: '第 3 課　挑空', text: () => `${KL('hvy')} 挑空 → 空中 ${KL('atk')} 連砍 → 空中 ${KL('hvy')} 下砸`, spawn: 'dummy', check: () => tut.launched && tut.airHit && tut.slam },
+  { title: '第 4 課　閃避', text: () => `敵人出手時按 ${KL('dodge')} 閃過去；剛好閃過會進入慢動作`, spawn: 'grunt', check: () => tut.dodged },
+  { title: '第 5 課　彈反', text: () => `敵人頭上出現紅色 ! 時按 ${KL('parry')}，彈開牠的攻擊`, spawn: 'grunt', check: () => tut.parried },
+  { title: '第 6 課　斷響', text: () => `攻擊會削減白色「界限條」；打空後靠近按 ${KL('hvy')}，一刀斬斷`, spawn: 'brute', check: () => tut.exec },
+];
+function startTutorial(step = 0) {
+  tut = { step: step - 1, wait: 0, moved: false, jumped: false, djumped: false, l4: false, launched: false, airHit: false, slam: false, dodged: false, parried: false, exec: false };
+  enemies = []; pending = []; wave = 0; waveT = -1; waveBanner = 0;
+  nextTut();
+}
+function tutSpawn() {
+  const L = TUT[tut.step]; if (!L.spawn) return;
+  const side = P.x > AW / 2 ? -1 : 1;
+  spawn(L.spawn === 'brute' ? 'brute' : 'grunt', clamp(P.x + side * 130, 40, AW - 40));
+  const e = enemies[enemies.length - 1];
+  e.hp = e.max = 400;                                   // 練習用：不會被打死
+  if (L.spawn === 'dummy') { e.passive = true; e.brk = e.brkMax = 9999; }
+  if (L.spawn === 'grunt') { e.brk = e.brkMax = 9999; e.t = .2; }
+  if (L.spawn === 'brute') { e.brk = e.brkMax = 60; }
+}
+function nextTut() {
+  tut.step++;
+  for (const k of ['moved', 'jumped', 'djumped', 'l4', 'launched', 'airHit', 'slam', 'dodged', 'parried', 'exec']) tut[k] = false;
+  P.hp = P.max; combo = 0;
+  if (tut.step >= TUT.length) {
+    tut = null; tutSeen = true; try { localStorage.setItem('echorend-tut', '1'); } catch (e) {}
+    text('教學完成', P.x, P.y - 60, '#9fe8ff'); sfx('perfect');
+    startWave(0); return;
+  }
+  tut.delay = .8; sfx('tell', 1.2);
+}
+function updTut(rdt) {
+  if (tut.wait > 0) { tut.wait -= rdt; if (tut.wait <= 0) nextTut(); return; }
+  if (tut.delay > 0) { tut.delay -= rdt; if (tut.delay <= 0) tutSpawn(); return; }
+  const L = TUT[tut.step];
+  if (L.spawn && !enemies.some(e => !e.dead)) tutSpawn();           // 練習對象不見了就補
+  if (L.check()) {
+    tut.wait = 1.3; sfx('perfect');
+    text('完成！', P.x, P.y - 56, '#ffd84a');
+    for (const e of enemies) { e.dead = true; inkBurst(e.x, e.y - e.h / 2, 20, P.face); }
+  }
+}
+function drawTut() {
+  const L = TUT[tut.step]; if (!L) return;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const t1 = L.title, t2 = L.text();
+  ctx.font = '600 10px "PingFang TC","Microsoft JhengHei",sans-serif';
+  const w = Math.max(ctx.measureText(t2).width, 160) + 28;
+  ctx.fillStyle = 'rgba(6,4,10,.78)'; ctx.fillRect(VW / 2 - w / 2, 34, w, 44);
+  ctx.strokeStyle = 'rgba(159,232,255,.45)'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - w / 2, 34, w, 44);
+  ctx.font = '900 13px "Noto Serif TC","Songti TC","PMingLiU",serif'; ctx.fillStyle = '#9fe8ff'; ctx.fillText(t1, VW / 2, 48);
+  ctx.font = '600 10px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#f1eef4'; ctx.fillText(t2, VW / 2, 66);
+  ctx.font = '8px sans-serif'; ctx.fillStyle = '#9a90a0'; ctx.textAlign = 'right'; ctx.fillText(`${tut.step + 1} / ${TUT.length}`, VW / 2 + w / 2 - 6, 42);
+  if (tut.wait > 0) { ctx.textAlign = 'center'; ctx.font = '900 16px "Noto Serif TC","Songti TC","PMingLiU",serif'; ctx.fillStyle = '#ffd84a'; ctx.fillText('完成！', VW / 2, 100); }
 }
 
 // ---------- 波次 ----------
@@ -422,12 +484,16 @@ function step(rdt) {
   if (P.hp <= 0) { deadT += rdt; if (deadT > 1.6 && (PR.jump || PR.atk || PR.any)) restartWave(); return; }
   for (const q of pending) { q.t -= rdt; if (q.t <= 0) spawn(q.type, spawnX(q.side)); }
   pending = pending.filter(q => q.t > 0);
-  if (!enemies.length && !pending.length && waveT < 0) waveT = 1.6;
-  if (waveT > 0) { waveT -= rdt; if (waveT <= 0) { P.hp = Math.min(P.max, P.hp + 25); startWave(wave + 1); } }
+  if (tut) { if (IN.l || IN.r) tut.moved = true; updTut(rdt); }
+  else {
+    if (!enemies.length && !pending.length && waveT < 0) waveT = 1.6;
+    if (waveT > 0) { waveT -= rdt; if (waveT <= 0) { P.hp = Math.min(P.max, P.hp + 25); startWave(wave + 1); } }
+  }
   const tc = clamp(P.x - VW / 2 + P.face * 30, 0, AW - VW);
   cam += (tc - cam) * Math.min(1, rdt * 6);
 }
 function restartWave() {
+  if (tut) { const st = tut.step; P = newPlayer(); P.x = clamp(cam + VW / 2, 60, AW - 60); slowT = 0; startTutorial(st); return; }
   enemies = []; parts = []; fx = []; texts = []; pending = [];
   const n = wave; P = newPlayer(); P.x = clamp(cam + VW / 2, 60, AW - 60); combo = 0; slowT = 0;
   startWave(n);
@@ -661,7 +727,7 @@ function drawHUD() {
   const hp = P.hp / P.max; ctx.fillStyle = hp > .3 ? '#e8e4dc' : '#ff3a4a'; ctx.fillRect(15, 15, 120 * hp, 7);
   ctx.font = '700 8px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#c9c0c4'; ctx.fillText('HP', 140, 22);
   ctx.textAlign = 'center'; ctx.fillStyle = '#d8c8cc'; ctx.font = '700 9px "PingFang TC","Microsoft JhengHei",sans-serif';
-  ctx.fillText(`第 ${wave + 1} 波`, VW / 2, 22);
+  if (!tut) ctx.fillText(`第 ${wave + 1} 波`, VW / 2, 22);
   if (combo >= 2) {
     const rank = combo >= 40 ? 'S' : combo >= 25 ? 'A' : combo >= 14 ? 'B' : combo >= 6 ? 'C' : 'D';
     const rc = { S: '#ffd84a', A: '#ff7a4a', B: '#ff4a8a', C: '#9fe8ff', D: '#c9c0c4' }[rank];
@@ -672,12 +738,13 @@ function drawHUD() {
     ctx.fillStyle = rc; ctx.fillRect(VW - 90, 80, 74 * Math.min(1, comboT / 2.2), 2);
     ctx.globalAlpha = 1;
   }
-  if (waveBanner > 0) {
+  if (tut) drawTut();
+  if (waveBanner > 0 && !tut) {
     ctx.textAlign = 'center'; ctx.globalAlpha = Math.min(1, waveBanner * 2, (2 - waveBanner) * 3);
     ctx.font = '900 22px "Noto Serif TC","Songti TC","PMingLiU",serif'; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff3a55'; ctx.shadowBlur = 14;
     ctx.fillText(`第 ${wave + 1} 波`, VW / 2, 90); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
   }
-  if (T < 14 && wave === 0) {
+  if (false) {
     ctx.textAlign = 'center'; ctx.globalAlpha = Math.min(1, (14 - T) / 2) * .8;
     ctx.font = '8px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#c9c0c4';
     ctx.fillText(isTouch ? '斬 連打四段｜重 挑空（空中＝下砸）｜閃 完美閃避會慢動作｜擋 紅色 ! 可以彈反，黃色 ! 要跳或閃' : `${KL('atk')} 斬（連打四段）　${KL('hvy')} 重：挑空／空中下砸　${KL('dodge')} 閃避　${KL('parry')} 彈反　${KL('jump')} 跳（可二段）`, VW / 2, VH - 12);
@@ -763,7 +830,7 @@ addEventListener('keydown', e => {
     rebinding = null; showKeys(); return;
   }
   if (e.code === 'Escape' || e.code === 'KeyP') { e.preventDefault(); if (scene === 'play') paused ? resume() : showPause(); return; }
-  if (scene === 'title' && menu.dataset.view === 'title' && (e.code === 'Enter' || e.code === KEYS.jump || e.code === KEYS.atk)) { e.preventDefault(); startGame(); return; }
+  if (scene === 'title' && menu.dataset.view === 'title' && (e.code === 'Enter' || e.code === KEYS.jump || e.code === KEYS.atk)) { e.preventDefault(); startGame(!tutSeen); return; }
   const k = KEYMAP[e.code];
   if (k) { e.preventDefault(); if (!KB[k]) Q[k] = 1; KB[k] = 1; }
 });
@@ -806,22 +873,23 @@ function showKeys() {
 function showTitle() {
   scene = 'title';
   menu.dataset.view = 'title'; menu.dataset.from = 'title';
-  menu.innerHTML = `<h1>餘響</h1><p class="s">ECHOREND・戰鬥試玩</p><button id="mGo">開始</button>${isTouch ? '' : '<button id="mKeys">按鍵設定</button>'}<div class="help">${helpHTML()}</div>`;
-  menu.style.display = 'flex'; $('mGo').onclick = startGame;
+  menu.innerHTML = `<h1>餘響</h1><p class="s">ECHOREND・戰鬥試玩</p><button id="mGo">${tutSeen ? '開始' : '開始（含教學）'}</button><button id="mAlt">${tutSeen ? '再看一次教學' : '跳過教學'}</button>${isTouch ? '' : '<button id="mKeys">按鍵設定</button>'}<div class="help">${helpHTML()}</div>`;
+  menu.style.display = 'flex'; $('mGo').onclick = () => startGame(!tutSeen); $('mAlt').onclick = () => startGame(tutSeen);
   if (!isTouch) $('mKeys').onclick = showKeys;
   P = newPlayer(); enemies = [];
 }
-function startGame() {
+function startGame(withTut) {
   audioInit(); menu.style.display = 'none'; scene = 'play'; paused = false; Q = {};
   P = newPlayer(); enemies = []; parts = []; fx = []; texts = []; combo = 0; best = 0; T = 0; cam = 0;
-  stats = { parry: 0, perfect: 0, exec: 0, kills: 0 }; slowT = 0; gray = 0; letter = 0;
-  startWave(0);
+  stats = { parry: 0, perfect: 0, exec: 0, kills: 0 }; slowT = 0; gray = 0; letter = 0; tut = null;
+  if (withTut) startTutorial(); else startWave(0);
 }
+let tutSeen = false; try { tutSeen = !!localStorage.getItem('echorend-tut'); } catch (e) {}
 function showPause() {
   paused = true;
   menu.dataset.view = 'pause'; menu.dataset.from = 'pause';
   menu.innerHTML = `<h2>暫停</h2><button id="mRes">繼續</button>${isTouch ? '' : '<button id="mKeys">按鍵設定</button>'}<button id="mRe">從第 1 波重來</button><div class="help">${helpHTML()}</div>`;
-  menu.style.display = 'flex'; $('mRes').onclick = resume; $('mRe').onclick = startGame;
+  menu.style.display = 'flex'; $('mRes').onclick = resume; $('mRe').onclick = () => startGame(false);
   if (!isTouch) $('mKeys').onclick = showKeys;
 }
 function resume() { paused = false; menu.style.display = 'none'; Q = {}; }
