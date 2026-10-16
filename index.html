@@ -142,8 +142,8 @@ function updPlayer(dt) {
     else if (P.airAtk < 4) startAtk(P.chainT > 0 && P.last && ATK[P.last].air && ATK[P.last].next ? ATK[P.last].next : 'A1');
   }
   if (take('jump') && !busy && !P.slam) {
-    if (P.ground) { P.vy = -560; P.ground = false; P.atk = null; sfx('jump', 1); dust(P.x, FLOOR, 6); if (tut) tut.jumped = true; }
-    else if (P.airJumps > 0) { P.airJumps--; P.vy = -480; P.atk = null; sfx('jump', 1.3); ring(P.x, P.y, '#9fe8ff', 18); if (tut) tut.djumped = true; }
+    if (P.ground) { P.vy = -560; P.jumpCut = true; P.ground = false; P.atk = null; sfx('jump', 1); dust(P.x, FLOOR, 6); if (tut) tut.jumped = true; }
+    else if (P.airJumps > 0) { P.airJumps--; P.vy = -480; P.jumpCut = true; P.atk = null; sfx('jump', 1.3); ring(P.x, P.y, '#9fe8ff', 18); if (tut) tut.djumped = true; }
   }
 
   // 水平移動
@@ -166,6 +166,9 @@ function updPlayer(dt) {
   let gs = 1;
   if (P.atk && P.atk.d.air) gs = P.atk.d.pogo ? 1 : .55;
   if (P.dodgeT > 0) { gs = 0; P.vy = 0; }
+  // 長短按決定跳躍高度（2026-10-17）：上升中放開跳鍵 → 立刻收掉大部分上升速度。短按約一半高、按住到最高
+  if (P.jumpCut && !IN.jump && P.vy < -200) { P.vy = -200; P.jumpCut = false; }
+  if (P.vy >= 0) P.jumpCut = false;                       // 到頂了就不再處理（下劈彈起、被打飛不受影響）
   if (!P.slam) P.vy += G * gs * dt;
   P.y += P.vy * dt; P.x = clamp(P.x + P.vx * dt, 14, AW - 14);
   if (P.dodgeT <= 0 && !P.exec) {                        // 身體碰撞：走不進敵人身體裡（閃避可以穿過）
@@ -199,7 +202,7 @@ function updPlayer(dt) {
       const hb = { x: x0, y: P.y + d.box[2], w: d.box[1] - d.box[0], h: d.box[3] - d.box[2] };
       for (const e of enemies) if (!e.dead && !A.hit.has(e) && e.state !== 'spawn' && ov(hb, eBox(e))) {
         A.hit.add(e); hitEnemy(e, d, P.face);
-        if (d.pogo) { P.vy = -440; P.airAtk = 0; P.atk = null; P.chainT = 0; ring(P.x, P.y, '#9fe8ff', 20); break; }
+        if (d.pogo) { P.jumpCut = false; P.vy = -440; P.airAtk = 0; P.atk = null; P.chainT = 0; ring(P.x, P.y, '#9fe8ff', 20); break; }
       }
     }
     if (A.t >= d.dur) { P.atk = null; P.chainT = .32; if (P.queue) startAtk(P.queue); }
@@ -379,7 +382,7 @@ function playerHit(e) {
   }
   const dmg = e.dmg || (e.type === 'brute' ? (e.atk === 'smash' ? 22 : 16) : 9);
   P.hp = Math.max(0, P.hp - dmg); P.inv = .7; P.hurtT = .32; P.atk = null; P.queue = null; P.slam = false;
-  P.vx = e.face * 230; P.vy = P.ground ? -220 : -120; P.ground = false;
+  P.vx = e.face * 230; P.vy = P.ground ? -220 : -120; P.ground = false; P.jumpCut = false;
   hitstop = .07; kick(e.face, 0, 7); flash = .25; combo = 0; comboT = 0;
   sparks(P.x, P.y - 20, e.face, 10, 1.2); sfx('hurt');
   if (P.hp <= 0) { deadT = 0; slowT = 1.2; sfx('boom'); }
