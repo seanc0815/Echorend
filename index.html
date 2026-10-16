@@ -19,6 +19,11 @@ body.touch #touch{display:block}
 #menu button:hover{background:rgba(255,60,80,.25)}
 #menu .help{margin-top:10px;font-size:13px;line-height:1.8;color:#c9c0c4;max-width:560px}
 #menu .help b{color:#9fe8ff;font-weight:600}
+#keys{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;max-width:520px;width:100%}
+.krow{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);cursor:pointer;font-size:14px}
+.krow:hover{background:rgba(255,255,255,.12)}
+.krow.on{border-color:#9fe8ff;background:rgba(120,220,255,.18)}
+.krow b{color:#9fe8ff;min-width:60px;text-align:right}
 #menu .help i{font-style:normal;color:#ff7a8a}
 #rot{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#05050a;font-size:20px;z-index:9}
 @media (orientation:portrait){body.touch #rot{display:flex}}
@@ -224,6 +229,11 @@ function updExec(dt) {
 }
 
 // ---------- 敵人 ----------
+function spawnX(side) {        // 玩家貼牆時，那一側放不下 → 改生在另一側（不會生在玩家身上）
+  let x = P.x + side * rnd(130, 220);
+  if (x < 40 || x > AW - 40) x = P.x - side * rnd(130, 220);
+  return clamp(x, 40, AW - 40);
+}
 function spawn(type, x) {
   const e = type === 'brute'
     ? { type, w: 44, h: 52, hp: 260, max: 260, brk: 120, brkMax: 120, armor: true, spd: 48 }
@@ -266,7 +276,7 @@ function killEnemy(e, dir, byExec) {
   e.dead = true; stats.kills++;
   if (byExec) fx.push({ k: 'split', e: { type: e.type, x: e.x, y: e.y, w: e.w, h: e.h, face: e.face, wob: e.wob }, t: 0, life: 1.2, dir });
   inkBurst(e.x, e.y - e.h / 2, e.type === 'brute' ? 60 : 30, dir);
-  if (enemies.every(o => o.dead)) { slowT = .7; zoom = .07; sfx('boom'); }
+  if (enemies.every(o => o.dead) && !pending.length) { slowT = .7; zoom = .07; sfx('boom'); }
 }
 
 function updEnemy(e, dt) {
@@ -410,7 +420,7 @@ function step(rdt) {
   comboT -= dt; if (comboT <= 0) combo = 0;
   waveBanner -= rdt;
   if (P.hp <= 0) { deadT += rdt; if (deadT > 1.6 && (PR.jump || PR.atk || PR.any)) restartWave(); return; }
-  for (const q of pending) { q.t -= rdt; if (q.t <= 0) spawn(q.type, clamp(P.x + q.side * rnd(130, 220), 40, AW - 40)); }
+  for (const q of pending) { q.t -= rdt; if (q.t <= 0) spawn(q.type, spawnX(q.side)); }
   pending = pending.filter(q => q.t > 0);
   if (!enemies.length && !pending.length && waveT < 0) waveT = 1.6;
   if (waveT > 0) { waveT -= rdt; if (waveT <= 0) { P.hp = Math.min(P.max, P.hp + 25); startWave(wave + 1); } }
@@ -589,7 +599,7 @@ function drawEnemy(e) {
     ctx.moveTo(e.x - 3, cy); ctx.lineTo(e.x - 6, cy + e.h * .35); ctx.stroke(); ctx.shadowBlur = 0;
     if (Math.abs(e.x - P.x) < 95 && P.hp > 0 && !P.exec) {
       ctx.font = '700 9px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.textAlign = 'center';
-      const t = isTouch ? '「重」斷響' : 'C／K 斷響'; const w = ctx.measureText(t).width + 12;
+      const t = isTouch ? '「重」斷響' : `${KL('hvy')} 斷響`; const w = ctx.measureText(t).width + 12;
       ctx.fillStyle = 'rgba(20,0,6,.85)'; ctx.fillRect(e.x - w / 2, e.y - e.h - 40, w, 15);
       ctx.strokeStyle = '#ff4a5a'; ctx.lineWidth = 1; ctx.strokeRect(e.x - w / 2, e.y - e.h - 40, w, 15);
       ctx.fillStyle = '#fff'; ctx.fillText(t, e.x, e.y - e.h - 29.5);
@@ -670,8 +680,8 @@ function drawHUD() {
   if (T < 14 && wave === 0) {
     ctx.textAlign = 'center'; ctx.globalAlpha = Math.min(1, (14 - T) / 2) * .8;
     ctx.font = '8px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#c9c0c4';
-    ctx.fillText(isTouch ? '斬 連打四段｜重 挑空（空中＝下砸）｜閃 完美閃避會慢動作｜擋 紅色 ! 可以彈反，黃色 ! 要跳或閃' : 'X 斬（連打四段）　C 重：挑空／空中下砸　Shift 閃避　V 彈反　Z 跳（可二段）', VW / 2, VH - 12);
-    if (!isTouch) ctx.fillText('紅色 ! 可以彈反，黃色 ! 只能跳或閃　界限條（白）打空 → 按 C 斷響', VW / 2, VH - 24);
+    ctx.fillText(isTouch ? '斬 連打四段｜重 挑空（空中＝下砸）｜閃 完美閃避會慢動作｜擋 紅色 ! 可以彈反，黃色 ! 要跳或閃' : `${KL('atk')} 斬（連打四段）　${KL('hvy')} 重：挑空／空中下砸　${KL('dodge')} 閃避　${KL('parry')} 彈反　${KL('jump')} 跳（可二段）`, VW / 2, VH - 12);
+    if (!isTouch) ctx.fillText(`紅色 ! 可以彈反，黃色 ! 只能跳或閃　界限條（白）打空 → 按 ${KL('hvy')} 斷響`, VW / 2, VH - 24);
     ctx.globalAlpha = 1;
   }
 }
@@ -718,17 +728,42 @@ function render() {
     ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '900 22px "Noto Serif TC","Songti TC","PMingLiU",serif'; ctx.fillText('倒下', VW / 2, VH / 2 - 10);
     ctx.font = '10px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#c9c0c4';
     ctx.fillText(`最高連擊 ${best}　彈反 ${stats.parry}　完美閃避 ${stats.perfect}　斷響 ${stats.exec}`, VW / 2, VH / 2 + 14);
-    if (deadT > 1.6) ctx.fillText(isTouch ? '點一下重來這一波' : '按 Z／X 重來這一波', VW / 2, VH / 2 + 34);
+    if (deadT > 1.6) ctx.fillText(isTouch ? '點一下重來這一波' : `按 ${KL('jump')}／${KL('atk')} 重來這一波`, VW / 2, VH / 2 + 34);
   }
 }
 
 // ---------- 輸入 ----------
-const KEYMAP = { ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd',
-  KeyZ: 'jump', Space: 'jump', KeyX: 'atk', KeyJ: 'atk', KeyC: 'hvy', KeyK: 'hvy', ShiftLeft: 'dodge', ShiftRight: 'dodge', KeyL: 'dodge', KeyV: 'parry', KeyI: 'parry' };
+// ---------- 按鍵設定（可改，存在 localStorage）----------
+// 預設：方向鍵移動，動作放在 A S D F 和空白鍵（Gabi 2026-10-16：不要 WASD 移動）
+const ACTIONS = [['l', '左移'], ['r', '右移'], ['u', '上'], ['d', '下'], ['jump', '跳'], ['atk', '斬'], ['hvy', '重／斷響'], ['dodge', '閃避'], ['parry', '彈反']];
+const DEFAULT_KEYS = { l: 'ArrowLeft', r: 'ArrowRight', u: 'ArrowUp', d: 'ArrowDown', jump: 'Space', atk: 'KeyA', hvy: 'KeyS', dodge: 'KeyD', parry: 'KeyF' };
+let KEYS = Object.assign({}, DEFAULT_KEYS), KEYMAP = {}, rebinding = null;
+try { Object.assign(KEYS, JSON.parse(localStorage.getItem('echorend-keys') || '{}')); } catch (e) {}
+function rebuildMap() { KEYMAP = {}; for (const k in KEYS) KEYMAP[KEYS[k]] = k; }
+rebuildMap();
+function keyLabel(code) {
+  const M = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Space: '空白鍵', ShiftLeft: '左Shift', ShiftRight: '右Shift', ControlLeft: '左Ctrl', ControlRight: '右Ctrl', AltLeft: '左Alt', AltRight: '右Alt', Enter: 'Enter', Tab: 'Tab', Backspace: 'Backspace', CapsLock: 'CapsLock', Comma: ',', Period: '.', Slash: '/', Semicolon: ';', Quote: "'", BracketLeft: '[', BracketRight: ']', Backslash: '\\', Minus: '-', Equal: '=', Backquote: '`' };
+  if (M[code]) return M[code];
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Numpad')) return '數字鍵' + code.slice(6);
+  return code;
+}
+const KL = k => keyLabel(KEYS[k]);
+function setKey(action, code) {
+  for (const k in KEYS) if (KEYS[k] === code && k !== action) KEYS[k] = KEYS[action];   // 已被用 → 交換
+  KEYS[action] = code; rebuildMap();
+  try { localStorage.setItem('echorend-keys', JSON.stringify(KEYS)); } catch (e) {}
+}
 addEventListener('keydown', e => {
   audioInit();
+  if (rebinding) {
+    e.preventDefault();
+    if (e.code !== 'Escape') setKey(rebinding, e.code);
+    rebinding = null; showKeys(); return;
+  }
   if (e.code === 'Escape' || e.code === 'KeyP') { e.preventDefault(); if (scene === 'play') paused ? resume() : showPause(); return; }
-  if (scene === 'title' && (e.code === 'Enter' || e.code === 'KeyZ' || e.code === 'Space' || e.code === 'KeyX')) { e.preventDefault(); startGame(); return; }
+  if (scene === 'title' && menu.dataset.view === 'title' && (e.code === 'Enter' || e.code === KEYS.jump || e.code === KEYS.atk)) { e.preventDefault(); startGame(); return; }
   const k = KEYMAP[e.code];
   if (k) { e.preventDefault(); if (!KB[k]) Q[k] = 1; KB[k] = 1; }
 });
@@ -756,12 +791,24 @@ $('bPause').addEventListener('pointerdown', e => { e.preventDefault(); if (scene
 function helpHTML() {
   return isTouch
     ? '<b>斬</b> 連打四段（最後一下擊飛）　<b>重</b> 挑空；空中＝下砸<br><b>閃</b> 閃避（剛好躲過攻擊＝完美閃避，慢動作）　<b>擋</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能跳或閃<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>重</b> 發動「斷響」'
-    : '<b>←→</b> 移動　<b>Z／空白</b> 跳（可二段跳）　<b>X／J</b> 斬（連打四段）<br><b>C／K</b> 重：地上挑空、空中下砸　<b>Shift／L</b> 閃避　<b>V／I</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能跳或閃；剛好閃過＝完美閃避（慢動作）<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>C</b> 發動「斷響」';
+    : `<b>${KL('l')} ${KL('r')}</b> 移動　<b>${KL('jump')}</b> 跳（可二段跳）　<b>${KL('atk')}</b> 斬（連打四段）<br><b>${KL('hvy')}</b> 重：地上挑空、空中下砸　<b>${KL('dodge')}</b> 閃避　<b>${KL('parry')}</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能閃避或跳；剛好閃過＝完美閃避（慢動作）<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>${KL('hvy')}</b> 發動「斷響」`;
+}
+function showKeys() {
+  const back = menu.dataset.from || 'title';
+  menu.dataset.view = 'keys';
+  const rows = ACTIONS.map(([k, name]) => `<div class="krow${rebinding === k ? ' on' : ''}" data-k="${k}"><span>${name}</span><b>${rebinding === k ? '請按一個鍵…' : KL(k)}</b></div>`).join('');
+  menu.innerHTML = `<h2>按鍵設定</h2><p class="s">點一列，再按想用的鍵。已被用的鍵會互換。Esc 取消</p><div id="keys">${rows}</div><div style="display:flex;gap:10px"><button id="kDef">恢復預設</button><button id="kBack">返回</button></div>`;
+  menu.style.display = 'flex';
+  menu.querySelectorAll('.krow').forEach(r => r.onclick = () => { rebinding = r.dataset.k; showKeys(); });
+  $('kDef').onclick = () => { KEYS = Object.assign({}, DEFAULT_KEYS); rebuildMap(); try { localStorage.removeItem('echorend-keys'); } catch (e) {} rebinding = null; showKeys(); };
+  $('kBack').onclick = () => { rebinding = null; back === 'pause' ? showPause() : showTitle(); };
 }
 function showTitle() {
   scene = 'title';
-  menu.innerHTML = `<h1>餘響</h1><p class="s">ECHOREND・戰鬥試玩</p><button id="mGo">開始</button><div class="help">${helpHTML()}</div>`;
+  menu.dataset.view = 'title'; menu.dataset.from = 'title';
+  menu.innerHTML = `<h1>餘響</h1><p class="s">ECHOREND・戰鬥試玩</p><button id="mGo">開始</button>${isTouch ? '' : '<button id="mKeys">按鍵設定</button>'}<div class="help">${helpHTML()}</div>`;
   menu.style.display = 'flex'; $('mGo').onclick = startGame;
+  if (!isTouch) $('mKeys').onclick = showKeys;
   P = newPlayer(); enemies = [];
 }
 function startGame() {
@@ -772,8 +819,10 @@ function startGame() {
 }
 function showPause() {
   paused = true;
-  menu.innerHTML = `<h2>暫停</h2><button id="mRes">繼續</button><button id="mRe">從第 1 波重來</button><div class="help">${helpHTML()}</div>`;
+  menu.dataset.view = 'pause'; menu.dataset.from = 'pause';
+  menu.innerHTML = `<h2>暫停</h2><button id="mRes">繼續</button>${isTouch ? '' : '<button id="mKeys">按鍵設定</button>'}<button id="mRe">從第 1 波重來</button><div class="help">${helpHTML()}</div>`;
   menu.style.display = 'flex'; $('mRes').onclick = resume; $('mRe').onclick = startGame;
+  if (!isTouch) $('mKeys').onclick = showKeys;
 }
 function resume() { paused = false; menu.style.display = 'none'; Q = {}; }
 
