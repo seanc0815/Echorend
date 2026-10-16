@@ -1,5 +1,5 @@
 // 離線快取（build_pages.py 產生，不要手改）
-const V = "echorend-49a5258db5";
+const V = "echorend-dde32da575";
 const CORE = ["./", "index.html", "manifest.json", "icon.png"];
 const FONT = /^https:\/\/fonts\.(googleapis|gstatic)\.com\//;
 self.addEventListener("install", e => {

@@ -734,9 +734,9 @@ function render() {
 
 // ---------- 輸入 ----------
 // ---------- 按鍵設定（可改，存在 localStorage）----------
-// 預設：方向鍵移動，動作放在 A S D F 和空白鍵（Gabi 2026-10-16：不要 WASD 移動）
+// 預設照空洞騎士（Gabi 2026-10-16）：方向鍵移動，Z 跳、X 砍、C 衝刺(閃避)、A 重／斷響、S 彈反；不用 WASD 移動
 const ACTIONS = [['l', '左移'], ['r', '右移'], ['u', '上'], ['d', '下'], ['jump', '跳'], ['atk', '斬'], ['hvy', '重／斷響'], ['dodge', '閃避'], ['parry', '彈反']];
-const DEFAULT_KEYS = { l: 'ArrowLeft', r: 'ArrowRight', u: 'ArrowUp', d: 'ArrowDown', jump: 'Space', atk: 'KeyA', hvy: 'KeyS', dodge: 'KeyD', parry: 'KeyF' };
+const DEFAULT_KEYS = { l: 'ArrowLeft', r: 'ArrowRight', u: 'ArrowUp', d: 'ArrowDown', jump: 'KeyZ', atk: 'KeyX', dodge: 'KeyC', hvy: 'KeyA', parry: 'KeyS' };
 let KEYS = Object.assign({}, DEFAULT_KEYS), KEYMAP = {}, rebinding = null;
 try { Object.assign(KEYS, JSON.parse(localStorage.getItem('echorend-keys') || '{}')); } catch (e) {}
 function rebuildMap() { KEYMAP = {}; for (const k in KEYS) KEYMAP[KEYS[k]] = k; }
