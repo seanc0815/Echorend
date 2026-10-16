@@ -44,7 +44,7 @@ body.touch #touch{display:block}
 'use strict';
 // 餘響 Echorend 戰鬥試玩（2026-10-16，原名「斷界」）：只做戰鬥手感。角色用簡單圖形。
 const VW = 480, VH = 270, STEP = 1 / 120, FLOOR = 232, AW = 1100, G = 1700, RUN = 165;
-const DODGE = .26, PARRY = .22;     // 彈反窗口 0.22 秒（原 .17；配合出手前 0.32 秒的亮光提示）
+const DODGE = .26, PARRY = .18;     // 彈反窗口 0.22 秒（原 .17；配合出手前 0.32 秒的亮光提示）
 const GLINT = .32;                  // 出手前多久亮白光＋「叮」：看到後約 0.1～0.3 秒內按彈反都接得到
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d'), menu = $('menu');
@@ -113,7 +113,7 @@ function startAtk(name) {
 
 function updPlayer(dt) {
   const dir = (IN.r ? 1 : 0) - (IN.l ? 1 : 0);
-  P.bladeFlash = (P.bladeFlash || 0) - dt; P.dodgeCD -= dt; P.parryCD -= dt; P.parryT -= dt; P.parryLag -= dt; P.hurtT -= dt; P.inv -= dt; P.chainT -= dt; P.recT -= dt;
+  P.bladeFlash = (P.bladeFlash || 0) - dt; P.pdT = (P.pdT || 0) - dt / Math.max(.3, slowT > 0 ? .3 : 1); P.dodgeCD -= dt; P.parryCD -= dt; P.parryT -= dt; P.parryLag -= dt; P.hurtT -= dt; P.inv -= dt; P.chainT -= dt; P.recT -= dt;
   if (P.hp <= 0) { P.vx *= .9; P.vy += G * dt; P.y = Math.min(FLOOR, P.y + P.vy * dt); P.x += P.vx * dt; return; }
 
   const busy = P.hurtT > 0 || P.parryLag > 0;
@@ -200,6 +200,14 @@ function updPlayer(dt) {
   // 攻擊判定
   if (P.atk) {
     const A = P.atk, d = A.d; A.t += dt;
+    if (!A.waved && (A.name === 'L4' || A.name === 'A3') && A.t >= d.a0) {     // 第四段／空中終結：放出一道刀氣（視覺）
+      A.waved = true; fx.push({ k: 'wave', x: P.x + P.face * 20, y: P.y + d.arc[3], dir: P.face, t: 0, life: .32 });
+      sfx('swing', .7, 1.6);
+    }
+    if (A.t >= d.a0 && A.t <= d.a1 && Math.random() < .6) {               // 刀尖掉落的光點
+      const [r, a0, a1, oy] = d.arc, k = clamp((A.t - d.a0) / (d.a1 - d.a0), 0, 1), ang = a0 + (a1 - a0) * k;
+      part({ x: P.x + P.face * Math.cos(ang) * r, y: P.y + oy + Math.sin(ang) * r, vx: rnd(-30, 30), vy: rnd(-40, 10), life: rnd(.15, .35), c: Math.random() < .5 ? '#ffffff' : '#9fe8ff', r: rnd(1, 2), g: 120 });
+    }
     if (A.t >= d.a0 && A.t <= d.a1) {
       const x0 = P.face > 0 ? P.x + d.box[0] : P.x - d.box[1];
       const hb = { x: x0, y: P.y + d.box[2], w: d.box[1] - d.box[0], h: d.box[3] - d.box[2] };
@@ -211,7 +219,7 @@ function updPlayer(dt) {
     if (A.t >= d.dur) { P.atk = null; P.chainT = .32; if (P.queue) startAtk(P.queue); }
     else if (P.queue && A.t >= d.a1 + .04) startAtk(P.queue);
   }
-  for (const g of P.ghosts) g.a -= dt * 2.4;
+  for (const g of P.ghosts) g.a -= dt * (g.pd ? 1.2 : 2.4);
   P.ghosts = P.ghosts.filter(g => g.a > 0);
 }
 
@@ -292,6 +300,7 @@ function hitEnemy(e, d, dir, noStop) {
   if (tut) { if (d === ATK.L4) tut.l4 = true; if (d.launch) tut.launched = true; if (d.air) tut.airHit = true; if (d.slam) tut.slam = true; }
   const ex = e.x - dir * e.w * .2, ey = e.y - e.h * .55;
   sparks(ex, ey, dir, d.fin ? 16 : 10, d.fin ? 1.6 : 1.1);
+  for (let i = 0; i < (d.fin ? 10 : 5); i++) part({ x: ex, y: ey, vx: dir * rnd(60, 220), vy: rnd(-140, 40), g: 700, life: rnd(.3, .6), c: Math.random() < .8 ? '#0b0910' : '#ff3a4a', r: rnd(1.5, 3.5), drag: .97 });   // 被砍出的墨（裏界的怪是痛苦凝成的）
   fx.push({ k: 'impact', x: ex, y: ey, t: 0, life: d.fin ? .18 : .12, r: d.fin ? 30 : 18, dir, rot: rnd(0, 3.14) });
   e.sq = e.sqMax = d.fin ? .22 : .14;
   if (!noStop) { P.recT = .09; P.recV = -dir * (d.fin ? 60 : 150); }       // 刀的反作用力（空洞騎士的 recoil）
@@ -328,7 +337,7 @@ function updEnemy(e, dt) {
   if (e.sinceHit > 3 && e.state !== 'broken') e.brk = Math.min(e.brkMax, e.brk + e.brkMax * .08 * dt);
   if (e.state === 'wind') {                               // 出招前搖：記住長度，最後一段（剛好是彈反時機）亮一下＋「叮」
     if (e.windDur == null) e.windDur = Math.max(e.t, .2);
-    if (!e.glinted && e.t <= GLINT) { e.glinted = true; sfx(e.atk === 'sweep' || e.unparry ? 'warn' : 'glint'); }
+    if (!e.glinted && e.t <= GLINT) e.glinted = true;     // 2026-10-17：不再提示精準時機（太簡單），玩家要看出手動作
   } else { e.windDur = null; e.glinted = false; }
   const dx = P.x - e.x, dist = Math.abs(dx), brute = e.type === 'brute';
   const reach = brute ? 62 : 40;
@@ -398,6 +407,10 @@ function playerHit(e) {
     if (tut && P.dodgeT > 0) tut.dodged = true;
     if (P.dodgeT > DODGE - .17 && slowT <= 0) {
       stats.perfect++; slowT = 1.1; text('完美閃避', P.x, P.y - 52, '#9fe8ff'); sfx('perfect');
+      P.pdT = 1.1;
+      for (let i = 0; i < 5; i++) P.ghosts.push({ x: P.x - P.dodgeDir * i * 14, y: P.y, f: P.face, a: .9 - i * .12, pd: true });
+      sfxs.push({ k: 'ripple', x: P.x - cam, y: P.y - 18, t: 0, life: .9 });
+      fx.push({ k: 'flare', x: P.x, y: P.y - 18, t: 0, life: .18 });
       e.brk = Math.max(0, e.brk - (e.type === 'brute' || e.type === 'aria' ? 30 : 20)); P.inv = .5; e.sinceHit = 0;
     }
     return;
@@ -646,6 +659,18 @@ function drawHero(x, y, f, pose, alpha, tint) {
   ctx.beginPath(); ctx.moveTo(hx + Math.cos(ang) * 5, hy + Math.sin(ang) * 5); ctx.lineTo(hx + Math.cos(ang) * len, hy + Math.sin(ang) * len); ctx.stroke();
   ctx.restore(); ctx.restore();
 }
+const SLASH = {            // 每段刀光的樣子（2026-10-17）
+  L1: { W: 7, R: 0, core: '#dff8ff', glow: '#4fd0ff', blur: 10 },
+  L2: { W: 7, R: 0, core: '#dff8ff', glow: '#4fd0ff', blur: 10 },
+  L3: { W: 10, R: 4, core: '#ffffff', glow: '#7fe8ff', blur: 14, double: true },
+  L4: { W: 14, R: 8, core: '#ffffff', glow: '#4fd0ff', blur: 22, double: true, edge: '#ff3a55' },
+  H:  { W: 11, R: 4, core: '#ffffff', glow: '#7fe8ff', blur: 16, rise: true },
+  U:  { W: 8, R: 2, core: '#dff8ff', glow: '#4fd0ff', blur: 10 },
+  D:  { W: 8, R: 2, core: '#dff8ff', glow: '#4fd0ff', blur: 10 },
+  A1: { W: 7, R: 0, core: '#e8fbff', glow: '#9fe8ff', blur: 10 },
+  A2: { W: 7, R: 0, core: '#e8fbff', glow: '#9fe8ff', blur: 10 },
+  A3: { W: 13, R: 6, core: '#ffffff', glow: '#4fd0ff', blur: 20, double: true, edge: '#ff3a55' },
+};
 function drawSlash() {
   const A = P.atk; if (!A) return;
   const d = A.d, [r, a0, a1, oy] = d.arc;
@@ -656,12 +681,22 @@ function drawSlash() {
   const fade = A.t > d.a1 ? 1 - (A.t - d.a1) / .14 : 1;
   ctx.save(); ctx.translate(P.x, P.y + oy); ctx.scale(P.face, 1);
   const s = a0 + (a1 - a0) * tail, e = a0 + (a1 - a0) * head, ccw = a1 < a0;
-  const R = r + (d.fin ? 6 : 0), W = d.fin ? 11 : 7;
-  ctx.globalAlpha = .85 * fade;
-  ctx.fillStyle = d.fin ? '#ffffff' : '#dff8ff'; ctx.shadowColor = '#4fd0ff'; ctx.shadowBlur = d.fin ? 16 : 10;
-  ctx.beginPath(); ctx.arc(0, 0, R, s, e, ccw); ctx.arc(0, 0, R - W, e, s, !ccw); ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = .35 * fade; ctx.fillStyle = '#5fd8ff';
-  ctx.beginPath(); ctx.arc(0, 0, R + 3, s, e, ccw); ctx.arc(0, 0, R - W - 5, e, s, !ccw); ctx.closePath(); ctx.fill();
+  const st = SLASH[A.name] || SLASH.L1, R = r + st.R, W = st.W;
+  // 外層光暈
+  ctx.globalAlpha = .3 * fade; ctx.fillStyle = st.glow; ctx.shadowColor = st.glow; ctx.shadowBlur = st.blur;
+  ctx.beginPath(); ctx.arc(0, 0, R + 4, s, e, ccw); ctx.arc(0, 0, R - W - 6, e, s, !ccw); ctx.closePath(); ctx.fill();
+  // 主刀光：前端粗、尾端細（用好幾段畫出漸細）
+  const N = 10;
+  for (let i = 0; i < N; i++) {
+    const t0 = i / N, t1 = (i + 1) / N, aa = s + (e - s) * t0, bb = s + (e - s) * t1, w = W * (.25 + .75 * t1);
+    ctx.globalAlpha = (.35 + .6 * t1) * fade; ctx.fillStyle = st.core;
+    ctx.beginPath(); ctx.arc(0, 0, R, aa, bb, ccw); ctx.arc(0, 0, R - w, bb, aa, !ccw); ctx.closePath(); ctx.fill();
+  }
+  if (st.double) { ctx.globalAlpha = .7 * fade; ctx.strokeStyle = st.core; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, 0, R + 7, s + (e - s) * .3, e, ccw); ctx.stroke(); }
+  if (st.edge) { ctx.globalAlpha = .9 * fade; ctx.strokeStyle = st.edge; ctx.shadowColor = st.edge; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, 0, R - W * .5, s + (e - s) * .2, e, ccw); ctx.stroke(); }
+  // 刀尖的亮點
+  ctx.globalAlpha = fade; ctx.fillStyle = '#fff'; ctx.shadowColor = st.glow; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.arc(Math.cos(e) * (R - W * .4), Math.sin(e) * (R - W * .4), 2 + W * .12, 0, 6.283); ctx.fill();
   ctx.restore();
 }
 function blobPath(cx, cy, rx, ry, wob, n, j) {
@@ -753,17 +788,6 @@ function drawEnemy(e) {
     const big = e.type === 'brute' || e.type === 'aria' || e.type === 'xialin';
     ctx.font = `900 ${big ? 18 : 14}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 8;
     ctx.fillText('!', e.x, e.y - e.h - 16 + Math.sin(T * 30) * 1.5); ctx.shadowBlur = 0;
-    // 收縮的圈：從大圈縮到出手點，縮到最小的那一刻就是攻擊打出來的時候
-    const hx = e.x + e.face * (e.type === 'brute' ? (e.atk === 'sweep' ? 30 : 22) : 12), hy = e.atk === 'sweep' ? FLOOR - 8 : e.y - e.h * .6;
-    const k = e.windDur ? clamp(1 - e.t / e.windDur, 0, 1) : 1, R = (big ? 46 : 30) * (1 - k) + 6;
-    ctx.strokeStyle = c; ctx.globalAlpha = .35 + .55 * k; ctx.lineWidth = 1 + 2.5 * k;
-    ctx.beginPath(); ctx.arc(hx, hy, R, 0, 6.283); ctx.stroke(); ctx.globalAlpha = 1;
-    if (e.t <= GLINT) {                                   // 彈反時機：亮白色星芒
-      const g = 1 - e.t / GLINT, L = (big ? 22 : 15) * (.6 + g);
-      ctx.save(); ctx.translate(hx, hy); ctx.rotate(T * 2); ctx.fillStyle = yellow ? '#fff3b0' : '#ffffff'; ctx.shadowColor = c; ctx.shadowBlur = 16;
-      ctx.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.moveTo(Math.cos(a) * L, Math.sin(a) * L); ctx.lineTo(Math.cos(a + .78) * 2.5, Math.sin(a + .78) * 2.5); ctx.lineTo(Math.cos(a - .78) * 2.5, Math.sin(a - .78) * 2.5); }
-      ctx.fill(); ctx.restore();
-    }
   }
   if (e.state === 'strike' && e.type === 'brute') {        // 菁英出手的軌跡
     const yellow = e.atk === 'sweep', c = yellow ? 'rgba(255,204,51,' : 'rgba(255,90,100,';
@@ -810,6 +834,13 @@ function drawScreenFx() {
         ctx.lineTo(f.x + Math.cos(a + .012 * w) * r1, f.y + Math.sin(a + .012 * w) * r1); ctx.lineTo(f.x + Math.cos(a - .012 * w) * r1, f.y + Math.sin(a - .012 * w) * r1); ctx.fill();
       }
       ctx.restore();
+    } else if (f.k === 'ripple') {                           // 完美閃避：時間的波紋
+      for (let i = 0; i < 3; i++) {
+        const kk = clamp(k * 1.4 - i * .18, 0, 1); if (kk <= 0 || kk >= 1) continue;
+        ctx.globalAlpha = (1 - kk) * .7; ctx.strokeStyle = i === 1 ? '#ffffff' : '#7fe8ff'; ctx.lineWidth = 2 * (1 - kk) + .5;
+        ctx.beginPath(); ctx.ellipse(f.x, f.y, 20 + kk * 260, 12 + kk * 160, 0, 0, 6.283); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
     } else if (f.k === 'brush') {                            // 斷響：一筆毛筆刀痕
       const g = Math.min(1, k * 4), a = k < .6 ? 1 : 1 - (k - .6) / .4, x1 = f.x0 + (f.x1 - f.x0) * g, y = f.y;
       ctx.save(); ctx.globalAlpha = a;
@@ -844,6 +875,16 @@ function drawScreenFx() {
 function drawFx() {
   for (const f of fx) {
     const k = f.t / f.life;
+    if (f.k === 'wave') {                                     // 刀氣：往前飛的月牙
+      const x = f.x + f.dir * 520 * f.t, a = 1 - k;
+      ctx.save(); ctx.translate(x, f.y); ctx.scale(f.dir, 1); ctx.globalAlpha = a;
+      ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#4fd0ff'; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.ellipse(0, 0, 10 + k * 6, 26 + k * 6, 0, -1.5, 1.5); ctx.ellipse(-6, 0, 7 + k * 6, 22 + k * 6, 0, 1.5, -1.5, true); ctx.fill();
+      ctx.strokeStyle = '#ff3a55'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(-2, 0, 9 + k * 6, 24 + k * 6, 0, -1.2, 1.2); ctx.stroke();
+      ctx.restore();
+      if (Math.random() < .5) part({ x: x - f.dir * 4, y: f.y + rnd(-20, 20), vx: -f.dir * rnd(20, 60), vy: rnd(-20, 20), life: .25, c: '#9fe8ff', r: 1.5 });
+      continue;
+    }
     if (f.k === 'flare') {
       const a = 1 - k, R = 26 + k * 30;
       const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, R); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(.4, `rgba(159,232,255,${a * .6})`); g.addColorStop(1, 'rgba(159,232,255,0)');
@@ -945,6 +986,7 @@ function render() {
   ctx.translate(-cx + sx, sy);
   drawFloor(0);
   for (const g of P.ghosts) drawHero(g.x, g.y, g.f, 'dodge', g.a * .6, '#5fd8ff');
+  if (P.pdT > 0) { const gg = ctx.createRadialGradient(P.x, P.y - 18, 2, P.x, P.y - 18, 30); gg.addColorStop(0, `rgba(127,232,255,${.5 * Math.min(1, P.pdT)})`); gg.addColorStop(1, 'rgba(127,232,255,0)'); ctx.fillStyle = gg; ctx.fillRect(P.x - 30, P.y - 48, 60, 60); }
   for (const e of enemies) drawEnemy(e);
   drawProjs();
   const pose = P.exec ? 'exec' : P.dodgeT > 0 ? 'dodge' : P.parryT > 0 ? 'parry' : P.hurtT > 0 ? 'hurt' : P.ground && Math.abs(P.vx) > 20 && !P.atk ? 'run' : 'idle';
@@ -973,7 +1015,13 @@ function render() {
     }
   }
   drawScreenFx();
-  if (slowT > 0 && !P.exec) { ctx.fillStyle = `rgba(60,150,255,${Math.min(.14, slowT * .2)})`; ctx.fillRect(0, 0, VW, VH); }
+  if (slowT > 0 && !P.exec) {
+    const a = Math.min(1, slowT * 1.5);
+    ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${.45 * a})`; ctx.fillRect(0, 0, VW, VH); ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = `rgba(40,120,255,${.16 * a})`; ctx.fillRect(0, 0, VW, VH);
+    const vg2 = ctx.createRadialGradient(VW / 2, VH / 2, 80, VW / 2, VH / 2, 300); vg2.addColorStop(0, 'rgba(0,10,30,0)'); vg2.addColorStop(1, `rgba(0,10,30,${.55 * a})`);
+    ctx.fillStyle = vg2; ctx.fillRect(0, 0, VW, VH);
+  }
   if (letter > 0) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, 30 * letter); ctx.fillRect(0, VH - 30 * letter, VW, 30 * letter); }
   if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * .8})`; ctx.fillRect(0, 0, VW, VH); }
   const vg = ctx.createRadialGradient(VW / 2, VH / 2, 120, VW / 2, VH / 2, 320); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
@@ -1574,7 +1622,7 @@ const SFX = {
   },
   dodge: () => nz(.16, .18, 'bandpass', 2400, 600, .8),
   jump: (p = 1) => nz(.08, .1, 'bandpass', 900 * p, 1800 * p),
-  perfect: () => { osc('sine', 880, 1760, .25, .15); nz(.4, .2, 'bandpass', 4000, 300, .6); },
+  perfect: () => { nz(.35, .28, 'bandpass', 400, 6000, .8); osc('sine', 1760, 880, .5, .1); osc('sine', 110, 70, 1.1, .25); osc('triangle', 2637, 2600, .6, .05, .05); },   // 吸氣般的反向掃頻＋低頻拖長
   break: () => { osc('sawtooth', 220, 60, .35, .25); nz(.5, .4, 'highpass', 5000, 1500, .7); },
   execIn: () => { nz(.45, .3, 'bandpass', 200, 3000, .7); osc('sine', 55, 48, 1.1, .35); osc('sine', 80, 40, .12, .5); osc('sine', 80, 40, .12, .45, .28); },   // 低鳴＋兩下心跳
   snap: () => { for (let i = 0; i < 6; i++) osc('square', 2600 + i * 310, 900, .07, .035, i * .025); nz(.15, .25, 'highpass', 5000, 2000); },   // 紅線一根根斷掉
