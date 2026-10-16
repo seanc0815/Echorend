@@ -1,0 +1,16 @@
+{
+  "name": "餘響 Echorend",
+  "short_name": "餘響",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a070e",
+  "theme_color": "#0a070e",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
