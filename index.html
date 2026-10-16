@@ -1261,7 +1261,13 @@ function drawStory() {
 // ---------- 按鍵設定（可改，存在 localStorage）----------
 // 預設照空洞騎士（Gabi 2026-10-16）：方向鍵移動，Z 跳、X 砍、C 衝刺(閃避)、A 重／斷響、S 彈反；不用 WASD 移動
 const ACTIONS = [['l', '左移'], ['r', '右移'], ['u', '上'], ['d', '下'], ['jump', '跳'], ['atk', '斬'], ['hvy', '重／斷響'], ['dodge', '閃避'], ['parry', '彈反']];
-const DEFAULT_KEYS = { l: 'ArrowLeft', r: 'ArrowRight', u: 'ArrowUp', d: 'ArrowDown', jump: 'KeyZ', atk: 'KeyX', dodge: 'KeyC', hvy: 'KeyA', parry: 'KeyS' };
+const PRESETS = {                       // 兩套可切換的配置（2026-10-17：組員反饋要 WASD）
+  arrows: { name: '方向鍵', keys: { l: 'ArrowLeft', r: 'ArrowRight', u: 'ArrowUp', d: 'ArrowDown', jump: 'KeyZ', atk: 'KeyX', dodge: 'KeyC', hvy: 'KeyA', parry: 'KeyS' } },
+  wasd:   { name: 'WASD',   keys: { l: 'KeyA', r: 'KeyD', u: 'KeyW', d: 'KeyS', jump: 'KeyK', atk: 'KeyJ', dodge: 'KeyL', hvy: 'KeyU', parry: 'KeyI' } },
+};
+const DEFAULT_KEYS = PRESETS.arrows.keys;
+function presetOf(keys) { for (const id in PRESETS) if (Object.keys(PRESETS[id].keys).every(k => PRESETS[id].keys[k] === keys[k])) return id; return null; }
+function applyPreset(id) { KEYS = Object.assign({}, PRESETS[id].keys); rebuildMap(); try { localStorage.setItem('echorend-keys', JSON.stringify(KEYS)); } catch (e) {} }
 let KEYS = Object.assign({}, DEFAULT_KEYS), KEYMAP = {}, rebinding = null;
 try { Object.assign(KEYS, JSON.parse(localStorage.getItem('echorend-keys') || '{}')); } catch (e) {}
 function rebuildMap() { KEYMAP = {}; for (const k in KEYS) KEYMAP[KEYS[k]] = k; }
@@ -1322,17 +1328,19 @@ function showKeys() {
   const back = menu.dataset.from || 'title';
   menu.dataset.view = 'keys';
   const rows = ACTIONS.map(([k, name]) => `<div class="krow${rebinding === k ? ' on' : ''}" data-k="${k}"><span>${name}</span><b>${rebinding === k ? '請按一個鍵…' : KL(k)}</b></div>`).join('');
-  menu.innerHTML = `<h2>按鍵設定</h2><p class="s">點一列，再按想用的鍵。已被用的鍵會互換。Esc 取消</p><div id="keys">${rows}</div><div style="display:flex;gap:10px"><button id="kDef">恢復預設</button><button id="kBack">返回</button></div>`;
+  menu.innerHTML = `<h2>按鍵設定</h2><p class="s">點一列，再按想用的鍵。已被用的鍵會互換。Esc 取消</p><div id="keys">${rows}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button id="kArrows">${presetOf(KEYS) === 'arrows' ? '✓ ' : ''}方向鍵配置</button><button id="kWasd">${presetOf(KEYS) === 'wasd' ? '✓ ' : ''}WASD 配置</button><button id="kBack">返回</button></div><p class="s" style="margin-top:6px">方向鍵：← → 移動、Z 跳、X 斬、C 閃、A 重、S 彈反　｜　WASD：A D 移動、K 跳、J 斬、L 閃、U 重、I 彈反</p>`;
   menu.style.display = 'flex';
   menu.querySelectorAll('.krow').forEach(r => r.onclick = () => { rebinding = r.dataset.k; showKeys(); });
-  $('kDef').onclick = () => { KEYS = Object.assign({}, DEFAULT_KEYS); rebuildMap(); try { localStorage.removeItem('echorend-keys'); } catch (e) {} rebinding = null; showKeys(); };
+  $('kArrows').onclick = () => { applyPreset('arrows'); rebinding = null; showKeys(); };
+  $('kWasd').onclick = () => { applyPreset('wasd'); rebinding = null; showKeys(); };
   $('kBack').onclick = () => { rebinding = null; back === 'pause' ? showPause() : showTitle(); };
 }
 function showTitle() {
   scene = 'title';
   menu.dataset.view = 'title'; menu.dataset.from = 'title';
   const sv = storySave();
-  menu.innerHTML = `<h1>餘響</h1><p class="s">ECHOREND・第一章　空白的照片</p>${sv ? '<button id="mCont">繼續第一章</button>' : ''}<button id="mStory">${sv ? '第一章從頭開始' : '開始第一章'}</button><button id="mGo">戰鬥試玩（波次）</button><button id="mAlt">教學</button>${isTouch ? '' : '<button id="mKeys">按鍵設定</button>'}<div class="help">${helpHTML()}</div>`;
+  menu.innerHTML = `<h1>餘響</h1><p class="s">ECHOREND・第一章　空白的照片</p>${sv ? '<button id="mCont">繼續第一章</button>' : ''}<button id="mStory">${sv ? '第一章從頭開始' : '開始第一章'}</button><button id="mGo">戰鬥試玩（波次）</button><button id="mAlt">教學</button>${isTouch ? '' : `<button id="mScheme">按鍵：${presetOf(KEYS) ? PRESETS[presetOf(KEYS)].name : '自訂'}（點一下切換）</button><button id="mKeys">按鍵設定</button>`}<div class="help">${helpHTML()}</div>`;
+  if (!isTouch) $('mScheme').onclick = () => { applyPreset(presetOf(KEYS) === 'arrows' ? 'wasd' : 'arrows'); showTitle(); };
   menu.style.display = 'flex'; $('mGo').onclick = () => startGame(false); $('mAlt').onclick = () => startGame(true);
   $('mStory').onclick = () => startGame('story'); if (sv) $('mCont').onclick = () => startGame('storyCont');
   if (!isTouch) $('mKeys').onclick = showKeys;
