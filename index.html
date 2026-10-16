@@ -1383,7 +1383,6 @@ const SFX = {
   tell: (p = 1) => osc('triangle', 980 * p, 1100 * p, .09, .08),
   spawn: () => nz(.4, .12, 'bandpass', 300, 1200, 2),
   pick: () => { osc('triangle', 660, 1320, .15, .08); osc('triangle', 990, 1980, .3, .06, .12); },
-  execIn: SFX_execIn,
 };
 function sfx(n, a, b) { try { SFX[n] && SFX[n](a, b); } catch (e) {} }
 
