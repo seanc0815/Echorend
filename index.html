@@ -69,6 +69,7 @@ let cam = 0, wave = 0, waveT = 0, waveBanner = 0, combo = 0, comboT = 0, best = 
 let stats = { parry: 0, perfect: 0, exec: 0, kills: 0 }, pending = [], tut = null;
 let SK = { hvy: true, dodge: true, parry: true, exec: true };   // 可用的技能（劇情模式逐步解鎖）
 let story = null, projs = [], noiseT = 0, THEME = null;
+let sfxs = [];          // 畫面座標的特效（彈反的集中線、斷響的紅線斷裂、「斷」字）
 const KB = {}, TOUCH = {}, IN = {};
 let Q = {}, PR = {};
 const take = k => !!PR[k];
@@ -112,7 +113,7 @@ function startAtk(name) {
 
 function updPlayer(dt) {
   const dir = (IN.r ? 1 : 0) - (IN.l ? 1 : 0);
-  P.dodgeCD -= dt; P.parryCD -= dt; P.parryT -= dt; P.parryLag -= dt; P.hurtT -= dt; P.inv -= dt; P.chainT -= dt; P.recT -= dt;
+  P.bladeFlash = (P.bladeFlash || 0) - dt; P.dodgeCD -= dt; P.parryCD -= dt; P.parryT -= dt; P.parryLag -= dt; P.hurtT -= dt; P.inv -= dt; P.chainT -= dt; P.recT -= dt;
   if (P.hp <= 0) { P.vx *= .9; P.vy += G * dt; P.y = Math.min(FLOOR, P.y + P.vy * dt); P.x += P.vx * dt; return; }
 
   const busy = P.hurtT > 0 || P.parryLag > 0;
@@ -228,7 +229,9 @@ function slamImpact() {
 // ---------- 斷響處決 ----------
 function startExec(e) {
   P.atk = null; P.queue = null; P.dodgeT = 0;
-  P.exec = { e, t: 0, from: P.x, done: false, cut: false };
+  // 執念連結：從敵人身上往四周拉出的紅線（劇情設定：界限值歸零 → 連結變成紅線暴露）
+  const threads = Array.from({ length: 8 }, (_, i) => ({ a: i / 8 * 6.283 + rnd(-.25, .25), L: rnd(170, 300), bend: rnd(-50, 50), w: rnd(1.2, 2.4), d: rnd(0, .12) }));
+  P.exec = { e, t: 0, from: P.x, done: false, cut: false, threads };
   P.face = sgn(e.x - P.x) || P.face;
   P.inv = 99; sfx('execIn');
 }
@@ -241,17 +244,21 @@ function updExec(dt) {
     fx.push({ k: 'line', x0: P.x, x1: to, y: P.y - 20, t: 0, life: .5 });
     P.x = to; P.face *= -1; P.y = FLOOR; P.vy = 0;
     flash = 1; sfx('slashBig');
+    sfxs.push({ k: 'brush', t: 0, life: .55, y: e.y - e.h / 2, x0: Math.min(X.from, to) - cam - 40, x1: Math.max(X.from, to) - cam + 40 });
   }
   if (X.cut && !X.done && X.t >= .95) {
-    X.done = true; gray = 0; flash = .7; sfx('sheath'); setTimeout(() => sfx('boom'), 60);
+    X.done = true; gray = 0; flash = .7; sfx('sheath'); setTimeout(() => sfx('taiko'), 60); sfx('snap');
+    { const ex = e.x - cam, ey = e.y - e.h / 2;                 // 紅線斷開、往兩邊彈；畫面中央蓋一個「斷」
+      for (const th of X.threads) sfxs.push({ k: 'snap', x: ex, y: ey, a: th.a, L: th.L, bend: th.bend, w: th.w, t: 0, life: .6 });
+      sfxs.push({ k: 'stamp', t: 0, life: 1.5 });
+      for (let i = 0; i < 26; i++) { const a = rnd(0, 6.28), r = rnd(30, 120); sfxs.push({ k: 'ink', x: VW / 2 + Math.cos(a) * r, y: VH / 2 - 8 + Math.sin(a) * r * .6, r: rnd(1, 4), t: 0, life: rnd(.8, 1.4) }); } }
     hitstop = .14; kick(-P.face, 0, 14); zoom = .08;
     stats.exec++; if (tut) tut.exec = true; combo += 1; comboT = 3;
     // 界限分段：小怪只有一段 → 直接斷；菁英／Boss 每次斷響砍掉一段，最後一段才結束
     e.segs = (e.segs || 1) - 1;
     const last = e.segs <= 0;
     const dmg = last ? 9999 : Math.round(e.max / (e.segsMax || 1));
-    if (last) pop(e.x, e.y - e.h - 8, '斷', '#ff4a5a', 1.6);
-    else { e.hp = Math.max(1, e.hp - dmg); pop(e.x, e.y - e.h - 8, dmg, '#ff4a5a', 1.6); text(`界限 剩 ${e.segs} 段`, e.x, e.y - e.h - 26, '#ffd0d6'); }
+    if (!last) { e.hp = Math.max(1, e.hp - dmg); pop(e.x, e.y - e.h - 8, dmg, '#ff4a5a', 1.6); text(`界限 剩 ${e.segs} 段`, e.x, e.y - e.h - 26, '#ffd0d6'); }
     if (last && e.type === 'aria') { e.dead = true; e.subdued = true; shards(e.x, e.y - e.h / 2, 40, '#cfe9ff'); ring(e.x, e.y - e.h / 2, '#fff', 60); if (story) story.ev = 'ariaDone'; }
     else if (last) { e.hp = 0; killEnemy(e, -P.face, true); }
     else { e.brk = e.brkMax; e.state = e.fly ? 'stagger' : 'down'; e.t = 1.1; e.vx = -P.face * 120; e.flash = .2; shards(e.x, e.y - e.h / 2, 30, '#ff4a5a'); }
@@ -341,7 +348,7 @@ function updEnemy(e, dt) {
       if (!brute) e.vx *= .93;
       const b = attackBox(e);
       if (!e.atkHit && P.hp > 0 && ov(b, pBox())) { e.atkHit = true; playerHit(e); }
-      if (e.t <= 0) { if (e.atk === 'smash') { kick(0, 1, 3); dust(e.x + e.face * 40, FLOOR, 8); sfx('thud'); } e.state = 'recover'; e.t = brute ? .75 : .55; e.atk = null; }
+      if (e.t <= 0) { e.lastAtk = e.atk; if (e.atk === 'smash') { kick(0, 1, 5); dust(e.x + e.face * 40, FLOOR, 12); ring(e.x + e.face * 40, FLOOR - 2, '#ff6a7a', 40); sfx('thud'); } e.state = 'recover'; e.t = brute ? .75 : .55; e.atk = null; }
       break;
     }
     case 'recover': e.vx *= .85; if (e.t <= 0) { e.state = 'chase'; e.t = rnd(.4, 1.1); } break;
@@ -374,10 +381,15 @@ function playerHit(e) {
   if (P.parryT > 0 && parryable) {
     stats.parry++; if (tut) tut.parried = true; P.parryT = 0; P.parryLag = 0; P.parryCD = 0; P.inv = .35;
     e.state = 'stagger'; e.t = e.type === 'brute' ? 1.1 : .9; e.vx = -e.face * 160; e.atk = null;
-    e.brk = Math.max(0, e.brk - (e.type === 'brute' || e.type === 'aria' ? 50 : 34)); e.flash = .12;   // 彈反：小怪一次破
+    e.brk = Math.max(0, e.brk - (e.type === 'brute' || e.type === 'aria' ? 50 : 34)); e.flash = .12; e.sinceHit = 0;       // 彈反也算「最近被打」，界限不會馬上回復   // 彈反：小怪一次破
     hitstop = .12; kick(-e.face, 0, 7); flash = .35; zoom = .05;
     const cx = (P.x + e.x) / 2;
     sparks(cx, P.y - 22, -e.face, 22, 2.2); ring(cx, P.y - 22, '#fff6c8', 40);
+    // 彈反特效（2026-10-17）：刀身亮白、兩圈衝擊波、畫面集中線、金色火花
+    ring(cx, P.y - 22, '#9fe8ff', 70); fx.push({ k: 'flare', x: cx, y: P.y - 22, t: 0, life: .22 });
+    sfxs.push({ k: 'speed', x: cx - cam, y: P.y - 22, t: 0, life: .22, rot: Math.random() });
+    for (let i = 0; i < 14; i++) { const a = rnd(0, 6.28), v = rnd(200, 420); part({ k: 'streak', x: cx, y: P.y - 22, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(.15, .3), c: '#ffd86a', r: 1.6, drag: .88 }); }
+    P.bladeFlash = .2;
     text('彈反', P.x, P.y - 52, '#fff3b0'); sfx('clang');
     if (e.brk <= 0) { e.state = 'broken'; e.t = 3.6; text('界限崩壞', e.x, e.y - e.h - 22, '#ff4a5a'); sfx('break'); }
     return;
@@ -386,7 +398,7 @@ function playerHit(e) {
     if (tut && P.dodgeT > 0) tut.dodged = true;
     if (P.dodgeT > DODGE - .17 && slowT <= 0) {
       stats.perfect++; slowT = 1.1; text('完美閃避', P.x, P.y - 52, '#9fe8ff'); sfx('perfect');
-      e.brk = Math.max(0, e.brk - (e.type === 'brute' || e.type === 'aria' ? 30 : 20)); P.inv = .5;
+      e.brk = Math.max(0, e.brk - (e.type === 'brute' || e.type === 'aria' ? 30 : 20)); P.inv = .5; e.sinceHit = 0;
     }
     return;
   }
@@ -509,6 +521,7 @@ function step(rdt) {
   PR = Q; Q = {};
   for (const k of ['l', 'r', 'u', 'd', 'jump', 'atk', 'hvy', 'dodge', 'parry']) IN[k] = !!(KB[k] || TOUCH[k]);
   T += rdt;
+  for (const f of sfxs) f.t += rdt; sfxs = sfxs.filter(f => f.t < f.life);
   shake = Math.max(0, shake - rdt * 40); zoom = Math.max(0, zoom - rdt * .25); flash = Math.max(0, flash - rdt * 4);
   if (!P.exec) gray = Math.max(0, gray - rdt * 4);
   if (P.exec) { updExec(rdt); updFx(rdt * .15); return; }
@@ -627,8 +640,9 @@ function drawHero(x, y, f, pose, alpha, tint) {
   else if (!P.ground) ang = 2.2;
   const hx = 4, hy = -10, len = 27;
   ctx.strokeStyle = '#2a2d38'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + Math.cos(ang) * 5, hy + Math.sin(ang) * 5); ctx.stroke();
-  ctx.strokeStyle = A || pose === 'parry' ? '#e9fbff' : '#b8c6cf'; ctx.lineWidth = 1.6;
-  if (A || pose === 'parry') { ctx.shadowColor = '#5fd8ff'; ctx.shadowBlur = 8; }
+  const bf = P.bladeFlash > 0;
+  ctx.strokeStyle = A || pose === 'parry' || bf ? '#ffffff' : '#b8c6cf'; ctx.lineWidth = bf ? 3 : 1.6;
+  if (A || pose === 'parry' || bf) { ctx.shadowColor = bf ? '#ffffff' : '#5fd8ff'; ctx.shadowBlur = bf ? 18 : 8; }
   ctx.beginPath(); ctx.moveTo(hx + Math.cos(ang) * 5, hy + Math.sin(ang) * 5); ctx.lineTo(hx + Math.cos(ang) * len, hy + Math.sin(ang) * len); ctx.stroke();
   ctx.restore(); ctx.restore();
 }
@@ -667,7 +681,7 @@ function drawEnemyShape(e, wob, state, flashOn) {
   if (e.type === 'aria') return drawAria(e, state, flashOn);
   if (e.type === 'grunt') {
     let sq = 0, lean = 0;
-    if (state === 'wind') { sq = 4; lean = -3; } else if (state === 'strike') lean = 5; else if (state === 'broken') sq = 6; else if (state === 'hurt') lean = -4;
+    if (state === 'wind') { const k = e.windDur ? clamp(1 - e.t / e.windDur, 0, 1) : 1; sq = 2 + 5 * k; lean = -3 - 5 * k; } else if (state === 'strike') lean = 8; else if (state === 'broken') sq = 6; else if (state === 'hurt') lean = -4;
     ctx.fillStyle = col; blobPath(x + f * lean, y - 11 + sq / 2, 14 + sq * .3, 11 - sq / 2, wob, 18, .08); ctx.fill();
     ctx.strokeStyle = 'rgba(255,50,70,.55)'; ctx.lineWidth = 1; ctx.stroke();
     ctx.strokeStyle = col; ctx.lineWidth = 2;
@@ -682,27 +696,49 @@ function drawEnemyShape(e, wob, state, flashOn) {
     if (state === 'strike') arm = e.atk === 'smash' ? 2 : 3;
     if (state === 'broken' || state === 'down') sq = 10;
     if (state === 'stagger') sq = 4;
+    const lean = state === 'wind' && e.windDur ? -f * 6 * clamp(1 - e.t / e.windDur, 0, 1) : state === 'strike' ? f * 5 : 0;   // 蓄力往後仰、出手往前壓
+    ctx.save(); ctx.translate(lean, 0);
     ctx.fillStyle = col;
     blobPath(x - f * 2, y - 26 + sq / 2, 20, 24 - sq / 2, wob, 22, .06); ctx.fill();
     ctx.strokeStyle = 'rgba(255,50,70,.5)'; ctx.lineWidth = 1.2; ctx.stroke();
     ctx.fillStyle = col; ctx.fillRect(x - 12, y - 8, 7, 8); ctx.fillRect(x + 5, y - 8, 7, 8);
     // 角
     ctx.beginPath(); ctx.moveTo(x + f * 6, y - 46 + sq); ctx.quadraticCurveTo(x + f * 18, y - 60 + sq, x + f * 24, y - 52 + sq); ctx.lineTo(x + f * 12, y - 42 + sq); ctx.fill();
-    // 手臂
+    // 手臂（2026-10-17：揮手要看得清楚）——蓄力時手慢慢舉高／往後拉、拳頭變大發光；出手時一口氣揮下，留下殘影
     const sx = x + f * 14, sy = y - 32 + sq;
-    let ax, ay;
-    if (arm === -1) { ax = sx + f * 6; ay = sy - 30; } else if (arm === 2) { ax = sx + f * 34; ay = y - 6; } else if (arm === 1) { ax = sx - f * 16; ay = y - 14; } else if (arm === 3) { ax = sx + f * 40; ay = y - 8; } else { ax = sx + f * 12; ay = sy + 18; }
-    ctx.strokeStyle = col; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ax, ay); ctx.stroke();
+    const wk = state === 'wind' && e.windDur ? clamp(1 - e.t / e.windDur, 0, 1) : state === 'wind' ? 1 : 0;   // 蓄力進度 0→1
+    const sk = state === 'strike' ? clamp(1 - e.t / .2, 0, 1) : 0;                                          // 揮擊進度 0→1
+    let ang, len = 34;                                      // 手臂角度（以面向為準：0＝正前方，負＝往上）
+    if (e.atk === 'sweep' && (state === 'wind' || state === 'strike')) ang = state === 'wind' ? lerpA(.9, 2.6, ease(wk)) : lerpA(2.6, .15, ease(sk));   // 往後拉 → 低掃
+    else if (state === 'wind') ang = lerpA(.6, -2.3, ease(wk));                                                   // 舉到頭頂後面
+    else if (state === 'strike') ang = lerpA(-2.3, .95, ease(sk));                                              // 砸下
+    else if (state === 'recover' && e.lastAtk === 'smash') ang = .95;                                             // 砸完手還壓在地上
+    else ang = .9 + Math.sin(T * 3 + wob) * .08;
+    const armAt = a => [sx + f * Math.cos(a) * len, sy + Math.sin(a) * len];
+    let [ax, ay] = armAt(ang);
+    if (state === 'strike') {                               // 揮擊殘影
+      for (let i = 1; i <= 3; i++) {
+        const pa = e.atk === 'sweep' ? lerpA(2.6, .15, ease(Math.max(0, sk - i * .12))) : lerpA(-2.3, .95, ease(Math.max(0, sk - i * .12)));
+        const [px2, py2] = armAt(pa); ctx.globalAlpha = .35 - i * .09; ctx.fillStyle = e.atk === 'sweep' ? '#ffcc33' : '#ff3a4a';
+        ctx.beginPath(); ctx.arc(px2, py2, 9, 0, 6.283); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = col; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ax, ay); ctx.stroke();
     const tell = state === 'wind' ? (e.atk === 'sweep' ? '#ffcc33' : '#ff3a4a') : null;
-    ctx.fillStyle = col; if (tell) { ctx.shadowColor = tell; ctx.shadowBlur = 14 + Math.sin(T * 40) * 4; }
-    ctx.beginPath(); ctx.arc(ax, ay, 8, 0, 6.283); ctx.fill(); ctx.shadowBlur = 0;
-    if (tell) { ctx.strokeStyle = tell; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ax, ay, 8, 0, 6.283); ctx.stroke(); }
+    const fistR = 8 + (tell ? 5 * wk : 0) + (state === 'strike' ? 3 : 0);
+    ctx.fillStyle = col; if (tell) { ctx.shadowColor = tell; ctx.shadowBlur = 10 + 16 * wk + Math.sin(T * 40) * 4; }
+    ctx.beginPath(); ctx.arc(ax, ay, fistR, 0, 6.283); ctx.fill(); ctx.shadowBlur = 0;
+    if (tell) { ctx.strokeStyle = tell; ctx.lineWidth = 1.5 + wk * 1.5; ctx.beginPath(); ctx.arc(ax, ay, fistR, 0, 6.283); ctx.stroke(); }
     ctx.strokeStyle = `rgba(255,60,80,${.4 + .3 * Math.sin(T * 5 + wob)})`; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x - 10, y - 40 + sq); ctx.lineTo(x - 3, y - 30 + sq); ctx.lineTo(x - 8, y - 20 + sq); ctx.moveTo(x + 4, y - 44 + sq); ctx.lineTo(x + 9, y - 34 + sq); ctx.stroke();
     ctx.fillStyle = state === 'wind' ? '#fff' : '#ff3a4a'; ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 8;
     ctx.beginPath(); ctx.arc(x + f * 10, y - 38 + sq, 2.5, 0, 6.283); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.restore();
   }
 }
+const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+const lerpA = (a, b, k) => a + (b - a) * k;
 function drawEnemy(e) {
   if (e.state === 'spawn') { ctx.globalAlpha = clamp(1 - e.t / .7, 0, 1); }
   const jx = e.shakeT > 0 ? rnd(-2, 2) : 0;
@@ -763,9 +799,58 @@ function drawEnemy(e) {
     }
   }
 }
+function drawScreenFx() {
+  for (const f of sfxs) {
+    const k = f.t / f.life;
+    if (f.k === 'speed') {                                   // 彈反：從碰撞點放射的集中線
+      ctx.save(); ctx.globalAlpha = (1 - k) * .85; ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 22; i++) {
+        const a = i / 22 * 6.283 + f.rot * 6, r0 = 40 + k * 60, r1 = 420, w = 2.2 * (1 - k) + .4;
+        ctx.beginPath(); ctx.moveTo(f.x + Math.cos(a) * r0, f.y + Math.sin(a) * r0);
+        ctx.lineTo(f.x + Math.cos(a + .012 * w) * r1, f.y + Math.sin(a + .012 * w) * r1); ctx.lineTo(f.x + Math.cos(a - .012 * w) * r1, f.y + Math.sin(a - .012 * w) * r1); ctx.fill();
+      }
+      ctx.restore();
+    } else if (f.k === 'brush') {                            // 斷響：一筆毛筆刀痕
+      const g = Math.min(1, k * 4), a = k < .6 ? 1 : 1 - (k - .6) / .4, x1 = f.x0 + (f.x1 - f.x0) * g, y = f.y;
+      ctx.save(); ctx.globalAlpha = a;
+      ctx.fillStyle = '#ff2a40'; ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 16;
+      ctx.beginPath(); ctx.moveTo(f.x0, y + 6); ctx.quadraticCurveTo((f.x0 + x1) / 2, y - 12, x1, y - 3); ctx.lineTo(x1 + 8, y - 1); ctx.quadraticCurveTo((f.x0 + x1) / 2, y - 2, f.x0, y + 9); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.shadowColor = '#fff'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(f.x0 + 10, y + 5); ctx.quadraticCurveTo((f.x0 + x1) / 2, y - 9, x1 - 6, y - 2); ctx.lineTo(x1 - 2, y - 1.5); ctx.quadraticCurveTo((f.x0 + x1) / 2, y - 5, f.x0 + 10, y + 6.5); ctx.fill();
+      ctx.restore();
+    } else if (f.k === 'snap') {                             // 紅線斷開：內半段縮回、外半段甩出去
+      const a = 1 - k, mid = f.L * .5, cA = Math.cos(f.a), sA = Math.sin(f.a), whip = Math.sin(k * 14) * 18 * (1 - k);
+      ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = '#ff2a40'; ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 10; ctx.lineWidth = f.w; ctx.lineCap = 'round';
+      const inner = mid * (1 - k);
+      ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + cA * inner - sA * whip * .4, f.y + sA * inner + cA * whip * .4); ctx.stroke();
+      const o0 = mid + k * 80, o1 = f.L + k * 140;
+      ctx.beginPath(); ctx.moveTo(f.x + cA * o0, f.y + sA * o0); ctx.quadraticCurveTo(f.x + cA * (o0 + o1) / 2 - sA * whip, f.y + sA * (o0 + o1) / 2 + cA * whip, f.x + cA * o1, f.y + sA * o1); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.globalAlpha = a * (1 - k); ctx.beginPath(); ctx.arc(f.x + cA * mid, f.y + sA * mid, 3 * (1 - k) + 1, 0, 6.283); ctx.fill();
+      ctx.restore();
+    } else if (f.k === 'ink') {
+      const a = k < .7 ? 1 : 1 - (k - .7) / .3; ctx.globalAlpha = a * .9; ctx.fillStyle = Math.random() < .002 ? '#000' : '#7a0c18';
+      ctx.beginPath(); ctx.arc(f.x, f.y + k * 6, f.r * Math.min(1, k * 8), 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;
+    } else if (f.k === 'stamp') {                            // 畫面中央的「斷」
+      const sc = k < .08 ? 1.7 - k / .08 * .7 : 1, a = k < .7 ? 1 : 1 - (k - .7) / .3, jx = k < .15 ? rnd(-2, 2) : 0;
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(VW / 2 + jx, VH / 2 - 8); ctx.scale(sc, sc); ctx.rotate(-.08);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '900 92px "Noto Serif TC","Songti TC","PMingLiU",serif';
+      ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(10,0,4,.85)'; ctx.strokeText('斷', 0, 0);
+      ctx.fillStyle = '#c8102e'; ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 24; ctx.fillText('斷', 0, 0);
+      ctx.restore();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
 function drawFx() {
   for (const f of fx) {
     const k = f.t / f.life;
+    if (f.k === 'flare') {
+      const a = 1 - k, R = 26 + k * 30;
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, R); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(.4, `rgba(159,232,255,${a * .6})`); g.addColorStop(1, 'rgba(159,232,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(f.x - R, f.y - R, R * 2, R * 2);
+      ctx.save(); ctx.translate(f.x, f.y); ctx.globalAlpha = a; ctx.fillStyle = '#fff';
+      ctx.fillRect(-60 * (1 - k * .5), -1, 120 * (1 - k * .5), 2); ctx.fillRect(-1, -30 * (1 - k * .5), 2, 60 * (1 - k * .5)); ctx.restore(); continue;
+    }
     if (f.k === 'impact') {
       const a = 1 - k, R = f.r * (.5 + k * .9);
       ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot); ctx.globalAlpha = a;
@@ -872,12 +957,22 @@ function render() {
   if (gray > 0) {
     ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${gray})`; ctx.fillRect(0, 0, VW, VH);
     ctx.globalCompositeOperation = 'source-over';
-    if (P.exec) {
-      const e = P.exec.e, ex = (e.x - cx) * z + (1 - z) * px, ey = e.y - e.h / 2, n = clamp(P.exec.t / .9, 0, 1);
-      ctx.strokeStyle = '#ff2a40'; ctx.lineWidth = 2; ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 12;
-      ctx.beginPath(); ctx.moveTo(ex - 50 * n, ey - 30 * n); ctx.lineTo(ex + 50 * n, ey + 26 * n); ctx.moveTo(ex - 6, ey + 2); ctx.lineTo(ex + 20 * n, ey - 34 * n); ctx.stroke(); ctx.shadowBlur = 0;
+    if (P.exec && !P.exec.done) {
+      const X = P.exec, e = X.e, ex = (e.x - cx) * z + (1 - z) * px, ey = e.y - e.h / 2;
+      ctx.strokeStyle = '#ff2a40'; ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 12; ctx.lineCap = 'round';
+      for (const th of X.threads) {
+        const g = clamp((X.t - th.d) / .3, 0, 1); if (g <= 0) continue;
+        const L = th.L * (1 - Math.pow(1 - g, 3)), tremble = X.cut ? Math.sin(T * 70 + th.a * 9) * 1.6 : 0;
+        const x1 = ex + Math.cos(th.a) * L, y1 = ey + Math.sin(th.a) * L;
+        const mx = (ex + x1) / 2 - Math.sin(th.a) * (th.bend * (X.cut ? .15 : 1) + tremble), my = (ey + y1) / 2 + Math.cos(th.a) * (th.bend * (X.cut ? .15 : 1) + tremble);
+        ctx.lineWidth = th.w * (X.cut ? 1.4 : 1) + .4 * Math.sin(T * 12 + th.a);
+        ctx.beginPath(); ctx.moveTo(ex, ey); ctx.quadraticCurveTo(mx, my, x1, y1); ctx.stroke();
+      }
+      ctx.fillStyle = '#ff2a40'; ctx.beginPath(); ctx.arc(ex, ey, 4 + Math.sin(T * 20) * 1.5, 0, 6.283); ctx.fill();   // 連結的結
+      ctx.shadowBlur = 0;
     }
   }
+  drawScreenFx();
   if (slowT > 0 && !P.exec) { ctx.fillStyle = `rgba(60,150,255,${Math.min(.14, slowT * .2)})`; ctx.fillRect(0, 0, VW, VH); }
   if (letter > 0) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, 30 * letter); ctx.fillRect(0, VH - 30 * letter, VW, 30 * letter); }
   if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * .8})`; ctx.fillRect(0, 0, VW, VH); }
@@ -1473,12 +1568,17 @@ function nz(d, v, type, f0, f1, q = 1, delay = 0) {
 const SFX = {
   swing: (p = 1, s = 1) => nz(.13 * s, .22 * s, 'bandpass', 700 * p, 3400 * p, 1.2),
   hit: (p = 1, s = 1) => { osc('sine', 190 * p, 38, .16 * s, .8 * Math.min(1.4, s)); nz(.05 * s, .6, 'highpass', 1800, 6000); nz(.09 * s, .5, 'lowpass', 2600, 300); osc('square', 2400 * p, 700, .03, .1); if (s > 1.3) nz(.28, .3, 'lowpass', 900, 120); },
-  clang: () => { osc('triangle', 1320, 1250, .5, .22); osc('square', 1975, 1900, .35, .07); osc('sine', 2640, 2600, .6, .1); nz(.12, .35, 'highpass', 3000, 6000); osc('sine', 120, 50, .15, .4); },
+  clang: () => {                       // 彈反：金屬「鏘——」長尾音（幾個不成整數倍的泛音＝金屬感）
+    [[1318, .9, .16], [1976, .75, .1], [2793, .6, .07], [3711, .45, .05], [4987, .3, .035]].forEach(([f, d, v]) => osc('triangle', f, f * .996, d, v));
+    osc('sine', 659, 655, 1.1, .1); nz(.06, .6, 'highpass', 3500, 9000); nz(.25, .2, 'bandpass', 6000, 2500, 3); osc('sine', 150, 50, .18, .5);
+  },
   dodge: () => nz(.16, .18, 'bandpass', 2400, 600, .8),
   jump: (p = 1) => nz(.08, .1, 'bandpass', 900 * p, 1800 * p),
   perfect: () => { osc('sine', 880, 1760, .25, .15); nz(.4, .2, 'bandpass', 4000, 300, .6); },
   break: () => { osc('sawtooth', 220, 60, .35, .25); nz(.5, .4, 'highpass', 5000, 1500, .7); },
-  execIn: () => { nz(.45, .3, 'bandpass', 200, 3000, .7); osc('sine', 60, 40, .6, .3); },
+  execIn: () => { nz(.45, .3, 'bandpass', 200, 3000, .7); osc('sine', 55, 48, 1.1, .35); osc('sine', 80, 40, .12, .5); osc('sine', 80, 40, .12, .45, .28); },   // 低鳴＋兩下心跳
+  snap: () => { for (let i = 0; i < 6; i++) osc('square', 2600 + i * 310, 900, .07, .035, i * .025); nz(.15, .25, 'highpass', 5000, 2000); },   // 紅線一根根斷掉
+  taiko: () => { osc('sine', 120, 42, .7, .9); osc('triangle', 240, 80, .25, .2); nz(.35, .45, 'lowpass', 900, 90); },                     // 太鼓
   slashBig: () => { nz(.18, .5, 'bandpass', 4000, 800, 1); osc('sawtooth', 900, 120, .2, .12); },
   sheath: () => { osc('square', 2600, 2400, .03, .2); osc('triangle', 1800, 1700, .08, .12, .02); },
   boom: () => { osc('sine', 110, 30, .6, .7); nz(.5, .5, 'lowpass', 1500, 100); },
