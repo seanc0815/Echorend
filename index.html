@@ -44,7 +44,8 @@ body.touch #touch{display:block}
 'use strict';
 // 餘響 Echorend 戰鬥試玩（2026-10-16，原名「斷界」）：只做戰鬥手感。角色用簡單圖形。
 const VW = 480, VH = 270, STEP = 1 / 120, FLOOR = 232, AW = 1100, G = 1700, RUN = 165;
-const DODGE = .26, PARRY = .17;
+const DODGE = .26, PARRY = .22;     // 彈反窗口 0.22 秒（原 .17；配合出手前 0.32 秒的亮光提示）
+const GLINT = .32;                  // 出手前多久亮白光＋「叮」：看到後約 0.1～0.3 秒內按彈反都接得到
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d'), menu = $('menu');
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, sgn = v => v > 0 ? 1 : v < 0 ? -1 : 0, rnd = (a, b) => a + Math.random() * (b - a);
@@ -318,6 +319,10 @@ function updEnemy(e, dt) {
   e.t -= dt; e.flash -= dt; e.sinceHit += dt; e.jug -= dt; e.idle += dt; if (e.sq > 0) e.sq -= dt;
   if (e.shakeT > 0) e.shakeT -= dt;
   if (e.sinceHit > 3 && e.state !== 'broken') e.brk = Math.min(e.brkMax, e.brk + e.brkMax * .08 * dt);
+  if (e.state === 'wind') {                               // 出招前搖：記住長度，最後一段（剛好是彈反時機）亮一下＋「叮」
+    if (e.windDur == null) e.windDur = Math.max(e.t, .2);
+    if (!e.glinted && e.t <= GLINT) { e.glinted = true; sfx(e.atk === 'sweep' || e.unparry ? 'warn' : 'glint'); }
+  } else { e.windDur = null; e.glinted = false; }
   const dx = P.x - e.x, dist = Math.abs(dx), brute = e.type === 'brute';
   const reach = brute ? 62 : 40;
   if (e.ai) e.ai(e, dt, dx, dist); else switch (e.state) {
@@ -708,9 +713,31 @@ function drawEnemy(e) {
   drawEnemyShape(e, e.wob + T * 3, e.state, e.flash > 0);
   ctx.restore(); ctx.globalAlpha = 1;
   if (e.state === 'wind') {
-    const c = e.atk === 'sweep' ? '#ffcc33' : '#ff3a4a';
-    ctx.font = '900 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 8;
+    const yellow = e.atk === 'sweep' || e.unparry, c = yellow ? '#ffcc33' : '#ff3a4a';
+    const big = e.type === 'brute' || e.type === 'aria' || e.type === 'xialin';
+    ctx.font = `900 ${big ? 18 : 14}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 8;
     ctx.fillText('!', e.x, e.y - e.h - 16 + Math.sin(T * 30) * 1.5); ctx.shadowBlur = 0;
+    // 收縮的圈：從大圈縮到出手點，縮到最小的那一刻就是攻擊打出來的時候
+    const hx = e.x + e.face * (e.type === 'brute' ? (e.atk === 'sweep' ? 30 : 22) : 12), hy = e.atk === 'sweep' ? FLOOR - 8 : e.y - e.h * .6;
+    const k = e.windDur ? clamp(1 - e.t / e.windDur, 0, 1) : 1, R = (big ? 46 : 30) * (1 - k) + 6;
+    ctx.strokeStyle = c; ctx.globalAlpha = .35 + .55 * k; ctx.lineWidth = 1 + 2.5 * k;
+    ctx.beginPath(); ctx.arc(hx, hy, R, 0, 6.283); ctx.stroke(); ctx.globalAlpha = 1;
+    if (e.t <= GLINT) {                                   // 彈反時機：亮白色星芒
+      const g = 1 - e.t / GLINT, L = (big ? 22 : 15) * (.6 + g);
+      ctx.save(); ctx.translate(hx, hy); ctx.rotate(T * 2); ctx.fillStyle = yellow ? '#fff3b0' : '#ffffff'; ctx.shadowColor = c; ctx.shadowBlur = 16;
+      ctx.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.moveTo(Math.cos(a) * L, Math.sin(a) * L); ctx.lineTo(Math.cos(a + .78) * 2.5, Math.sin(a + .78) * 2.5); ctx.lineTo(Math.cos(a - .78) * 2.5, Math.sin(a - .78) * 2.5); }
+      ctx.fill(); ctx.restore();
+    }
+  }
+  if (e.state === 'strike' && e.type === 'brute') {        // 菁英出手的軌跡
+    const yellow = e.atk === 'sweep', c = yellow ? 'rgba(255,204,51,' : 'rgba(255,90,100,';
+    const k = clamp(1 - e.t / .2, 0, 1);
+    ctx.save(); ctx.translate(e.x, 0); ctx.scale(e.face, 1);
+    ctx.strokeStyle = c + (.8 * (1 - k * .5)) + ')'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.shadowColor = yellow ? '#ffcc33' : '#ff3a4a'; ctx.shadowBlur = 14;
+    ctx.beginPath();
+    if (yellow) ctx.ellipse(10, FLOOR - 8, 70, 10, 0, Math.PI * .9, Math.PI * .9 + Math.PI * 1.1 * (.3 + .7 * k), true);
+    else ctx.arc(14, e.y - 30, 44, -1.9, -1.9 + 2.6 * (.3 + .7 * k));
+    ctx.stroke(); ctx.restore();
   }
   if (e.state === 'broken') {
     ctx.strokeStyle = `rgba(255,${120 + 80 * Math.sin(T * 10)},140,.95)`; ctx.lineWidth = 1.4; ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 10;
@@ -1447,6 +1474,8 @@ const SFX = {
   hurt: () => { osc('sawtooth', 260, 70, .22, .25); nz(.1, .3, 'lowpass', 1200, 300); },
   thud: () => osc('sine', 120, 40, .15, .4),
   tell: (p = 1) => osc('triangle', 980 * p, 1100 * p, .09, .08),
+  glint: () => { osc('sine', 2637, 2600, .18, .13); osc('sine', 3951, 3900, .12, .06); },     // 彈反時機到了（紅）
+  warn: () => { osc('square', 330, 300, .14, .06); osc('square', 247, 230, .14, .05, .06); },   // 只能閃（黃）
   spawn: () => nz(.4, .12, 'bandpass', 300, 1200, 2),
   pick: () => { osc('triangle', 660, 1320, .15, .08); osc('triangle', 990, 1980, .3, .06, .12); },
 };
