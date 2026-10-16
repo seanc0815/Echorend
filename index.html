@@ -79,6 +79,8 @@ const ATK = {
   H: { dur: .44, a0: .1, a1: .18, dmg: 16, brk: 14, kb: 25, kby: -430, stop: .05, shake: 5, lunge: 50, box: [-2, 46, -64, 0], arc: [40, 1.7, -2.0, -14], launch: true, pitch: .8 },
   A1: { air: true, dur: .22, a0: .04, a1: .1, dmg: 8, brk: 7, kb: 45, kby: -210, stop: .03, shake: 2, lunge: 45, box: [0, 46, -38, 2], arc: [30, -1.2, 1.1, -18], next: 'A2', pitch: 1.15 },
   A2: { air: true, dur: .22, a0: .04, a1: .1, dmg: 8, brk: 7, kb: 45, kby: -210, stop: .03, shake: 2, lunge: 45, box: [0, 46, -38, 2], arc: [30, 1.1, -1.2, -20], next: 'A3', pitch: 1.25 },
+  U: { dur: .24, a0: .04, a1: .11, dmg: 9, brk: 8, kb: 20, kby: -260, stop: .03, shake: 2, lunge: 0, box: [-24, 24, -66, -14], arc: [30, -2.7, -.45, -22], pitch: 1.2 },
+  D: { air: true, pogo: true, dur: .26, a0: .03, a1: .2, dmg: 9, brk: 8, kb: 20, kby: 140, stop: .03, shake: 2, lunge: 0, box: [-20, 20, -8, 34], arc: [30, .45, 2.7, -14], pitch: 1.1 },
   A3: { air: true, dur: .34, a0: .07, a1: .14, dmg: 13, brk: 11, kb: 230, kby: -60, stop: .05, shake: 5, lunge: 70, box: [-2, 52, -42, 4], arc: [38, -2.2, 1.3, -18], fin: true, pitch: .9 },
 };
 
@@ -100,7 +102,7 @@ function startAtk(name) {
     if (fr > 80 && bk < 70) P.face *= -1;
   }
   P.atk = { name, d, t: 0, hit: new Set() }; P.queue = null; P.last = name;
-  if (d.air) { P.airAtk++; P.vy = Math.min(P.vy, -70); }
+  if (d.air && !d.pogo) { P.airAtk++; P.vy = Math.min(P.vy, -70); }
   sfx('swing', d.pitch, d.fin ? 1.4 : 1);
 }
 
@@ -132,6 +134,8 @@ function updPlayer(dt) {
   }
   if (take('atk') && !busy && P.dodgeT <= 0 && !P.slam) {
     if (P.atk) { if (P.atk.t > .07 && P.atk.d.next) P.queue = P.atk.d.next; }
+    else if (IN.d && !P.ground) startAtk('D');          // 空中下劈：打到會彈起（空洞騎士的 pogo）
+    else if (IN.u) startAtk('U');                        // 上斬
     else if (P.ground) startAtk(P.chainT > 0 && P.last && ATK[P.last].next && !ATK[P.last].air ? ATK[P.last].next : 'L1');
     else if (P.airAtk < 4) startAtk(P.chainT > 0 && P.last && ATK[P.last].air && ATK[P.last].next ? ATK[P.last].next : 'A1');
   }
@@ -145,6 +149,7 @@ function updPlayer(dt) {
     P.dodgeT -= dt; P.vx = P.dodgeDir * 400 * Math.sqrt(Math.max(0, P.dodgeT / DODGE)) + P.dodgeDir * 40;
     if (Math.random() < .5) P.ghosts.push({ x: P.x, y: P.y, f: P.face, a: .55 });
   } else if (P.slam) P.vx = 0;
+  else if (P.atk && dir) P.vx = dir * RUN * .9;          // 空洞騎士式：揮刀時照常移動（面向不變）
   else if (P.atk) {
     const d = P.atk.d;
     let lunge = d.lunge;
@@ -156,7 +161,7 @@ function updPlayer(dt) {
 
   // 垂直
   let gs = 1;
-  if (P.atk && P.atk.d.air) gs = .22;
+  if (P.atk && P.atk.d.air) gs = P.atk.d.pogo ? 1 : .55;
   if (P.dodgeT > 0 && !P.ground) gs = .35;
   if (!P.slam) P.vy += G * gs * dt;
   P.y += P.vy * dt; P.x = clamp(P.x + P.vx * dt, 14, AW - 14);
@@ -179,7 +184,10 @@ function updPlayer(dt) {
     if (A.t >= d.a0 && A.t <= d.a1) {
       const x0 = P.face > 0 ? P.x + d.box[0] : P.x - d.box[1];
       const hb = { x: x0, y: P.y + d.box[2], w: d.box[1] - d.box[0], h: d.box[3] - d.box[2] };
-      for (const e of enemies) if (!e.dead && !A.hit.has(e) && e.state !== 'spawn' && ov(hb, eBox(e))) { A.hit.add(e); hitEnemy(e, d, P.face); }
+      for (const e of enemies) if (!e.dead && !A.hit.has(e) && e.state !== 'spawn' && ov(hb, eBox(e))) {
+        A.hit.add(e); hitEnemy(e, d, P.face);
+        if (d.pogo) { P.vy = -440; P.airAtk = 0; P.atk = null; P.chainT = 0; ring(P.x, P.y, '#9fe8ff', 20); break; }
+      }
     }
     if (A.t >= d.dur) { P.atk = null; P.chainT = .32; if (P.queue) startAtk(P.queue); }
     else if (P.queue && A.t >= d.a1 + .04) startAtk(P.queue);
@@ -466,7 +474,7 @@ function step(rdt) {
   shake = Math.max(0, shake - rdt * 40); zoom = Math.max(0, zoom - rdt * .25); flash = Math.max(0, flash - rdt * 4);
   if (!P.exec) gray = Math.max(0, gray - rdt * 4);
   if (P.exec) { updExec(rdt); updFx(rdt * .15); return; }
-  if (hitstop > 0) { hitstop -= rdt; return; }
+  if (hitstop > 0) { hitstop -= rdt; for (const k in PR) Q[k] = 1; return; }   // 停格期間按的鍵保留到下一格（不然輸入會被吃掉）
   slowT -= rdt;
   const ts = slowT > 0 ? .3 : 1, dt = rdt * ts;
   updPlayer(dt);
@@ -858,7 +866,7 @@ $('bPause').addEventListener('pointerdown', e => { e.preventDefault(); if (scene
 function helpHTML() {
   return isTouch
     ? '<b>斬</b> 連打四段（最後一下擊飛）　<b>重</b> 挑空；空中＝下砸<br><b>閃</b> 閃避（剛好躲過攻擊＝完美閃避，慢動作）　<b>擋</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能跳或閃<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>重</b> 發動「斷響」'
-    : `<b>${KL('l')} ${KL('r')}</b> 移動　<b>${KL('jump')}</b> 跳（可二段跳）　<b>${KL('atk')}</b> 斬（連打四段）<br><b>${KL('hvy')}</b> 重：地上挑空、空中下砸　<b>${KL('dodge')}</b> 閃避　<b>${KL('parry')}</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能閃避或跳；剛好閃過＝完美閃避（慢動作）<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>${KL('hvy')}</b> 發動「斷響」`;
+    : `<b>${KL('l')} ${KL('r')}</b> 移動　<b>${KL('jump')}</b> 跳（可二段跳）　<b>${KL('atk')}</b> 斬（連打四段）<br><b>${KL('u')}＋${KL('atk')}</b> 上斬　<b>空中 ${KL('d')}＋${KL('atk')}</b> 下劈（打到會彈起）<br><b>${KL('hvy')}</b> 重：地上挑空、空中下砸　<b>${KL('dodge')}</b> 閃避　<b>${KL('parry')}</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能閃避或跳；剛好閃過＝完美閃避（慢動作）<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>${KL('hvy')}</b> 發動「斷響」`;
 }
 function showKeys() {
   const back = menu.dataset.from || 'title';
