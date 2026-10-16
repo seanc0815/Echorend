@@ -1176,7 +1176,7 @@ function updStoryUI(rdt) {
     if (press && u.t > .3 && (!PR.tapY || PR.tapY > VH - 76)) {
       const o = u.opts[u.sel];
       if (o.who) story.aff[o.who]++; if (o.money) story.money += o.money; if (o.info) story.info += o.info;
-      text(o.note, P.x, P.y - 56, '#ffd84a'); sfx('pick'); storyCheckpoint();
+      sfx('tell', 1.2); storyCheckpoint();                 // 不告訴玩家選了會得到什麼（Gabi 2026-10-17）
       story.ui = null; nextStep();
     }
   } else if (u.k === 'end') { if (u.t > 1.5 && press) { story = null; THEME = null; showTitle(); } }
@@ -1231,7 +1231,7 @@ function drawStory() {
       if (u.ch >= line.length && Math.floor(T * 3) % 2) { ctx.textAlign = 'right'; ctx.fillStyle = '#9fe8ff'; ctx.fillText('▼', VW - 40, VH - 24); }
     } else {
       ctx.textAlign = 'left'; ctx.font = '11px "PingFang TC","Microsoft JhengHei",sans-serif';
-      u.opts.forEach((o, i) => { const y = VH - 58 + i * 22, on = i === u.sel; if (on) { ctx.fillStyle = 'rgba(159,232,255,.14)'; ctx.fillRect(36, y - 10, VW - 72, 20); } ctx.fillStyle = on ? '#fff' : '#a9a2ac'; ctx.fillText((on ? '▶ ' : '　 ') + '凌夜：' + o.text, 42, y); ctx.textAlign = 'right'; ctx.fillStyle = on ? '#ffd84a' : '#6a646c'; ctx.font = '9px sans-serif'; ctx.fillText(o.note, VW - 40, y); ctx.textAlign = 'left'; ctx.font = '11px "PingFang TC","Microsoft JhengHei",sans-serif'; });
+      u.opts.forEach((o, i) => { const y = VH - 58 + i * 22, on = i === u.sel; if (on) { ctx.fillStyle = 'rgba(159,232,255,.14)'; ctx.fillRect(36, y - 10, VW - 72, 20); } ctx.fillStyle = on ? '#fff' : '#a9a2ac'; ctx.fillText((on ? '▶ ' : '　 ') + '凌夜：' + o.text, 42, y); });
     }
   } else if (u.k === 'end') {
     const a = Math.min(1, u.t); ctx.fillStyle = `rgba(3,2,6,${a})`; ctx.fillRect(0, 0, VW, VH);
