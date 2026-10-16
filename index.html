@@ -1109,6 +1109,17 @@ const CH1 = [
   { t: 'end' },
 ];
 const NAMECOL = { '凌夜': '#9fe8ff', '澪': '#d8c8ff', '夏凜': '#bfefff', '艾莉亞': '#ffd6e0', '': '#c9c0c4' };
+// 章末：不顯示數字，只用模糊的一兩句話暗示選擇留下的痕跡（Gabi 2026-10-17）
+function endLines() {
+  const a = story.aff, top = Math.max(a.mio, a.xialin, a.aria), out = [];
+  const L = { mio: '耳機那頭的聲音，好像比平常更近了一點。', xialin: '夏凜一路上，再也沒提過逮捕的事。', aria: '昏過去的艾莉亞，還緊緊抓著你的袖子。' };
+  if (top > 0) for (const k of ['aria', 'xialin', 'mio']) if (a[k] === top && out.length < 2) out.push(L[k]);
+  if (!out.length) out.push('沒有人知道你在想什麼。包括你自己。');
+  if (story.money > 0) out.push('口袋裡多了一點錢，心裡卻沒有比較踏實。');
+  else if (story.info > 0) out.push('你記住了她身上那串編號。');
+  out.push('項鍊比出發時，亮了一點。');
+  return out.slice(0, 3);
+}
 function storySave() { try { return JSON.parse(localStorage.getItem('echorend-ch1') || 'null'); } catch (e) { return null; } }
 function storyCheckpoint() { if (!story) return; try { localStorage.setItem('echorend-ch1', JSON.stringify({ i: story.cp, aff: story.aff, money: story.money, info: story.info, sk: SK, frag: story.frag })); } catch (e) {} }
 function startStory(cont) {
@@ -1240,8 +1251,7 @@ function drawStory() {
     ctx.font = '600 10px sans-serif'; ctx.fillStyle = '#c9c0c4'; ctx.fillText('E C H O R E N D', VW / 2, VH / 2 - 6);
     ctx.font = '10px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#e8dfe8';
     ctx.fillText('第一章　完', VW / 2, VH / 2 + 22);
-    ctx.fillText(`澪 ${story.aff.mio}　夏凜 ${story.aff.xialin}　艾莉亞 ${story.aff.aria}　　賞金 ${story.money}　情報 ${story.info}　記憶碎片 ${story.frag}／5`, VW / 2, VH / 2 + 42);
-    ctx.fillText(`彈反 ${stats.parry}　完美閃避 ${stats.perfect}　斷響 ${stats.exec}`, VW / 2, VH / 2 + 58);
+    endLines().forEach((l, i) => ctx.fillText(l, VW / 2, VH / 2 + 44 + i * 16));
     if (u.t > 1.5) { ctx.fillStyle = '#7a7280'; ctx.font = '8px sans-serif'; ctx.fillText(isTouch ? '點一下回標題' : `${KL('atk')} 回標題`, VW / 2, VH - 16); }
     ctx.globalAlpha = 1;
   }
