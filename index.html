@@ -125,7 +125,7 @@ function updPlayer(dt) {
     P.atk = null; P.queue = null; P.parryT = 0; P.parryLag = 0;
     P.dodgeT = DODGE; P.dodgeCD = .38; P.dodgeDir = dir || -P.face;
     if (dir) P.face = dir;
-    if (!P.ground) P.vy = Math.min(P.vy, -60);
+    P.vy = 0;                                           // 衝刺只走水平（空洞騎士式：衝刺期間沒有重力）
     sfx('dodge');
   }
   if (take('parry') && P.parryCD <= 0 && P.dodgeT <= 0 && !P.slam && P.hurtT <= 0 && (!P.atk || P.atk.t > P.atk.d.a1)) {
@@ -163,7 +163,7 @@ function updPlayer(dt) {
   // 垂直
   let gs = 1;
   if (P.atk && P.atk.d.air) gs = P.atk.d.pogo ? 1 : .55;
-  if (P.dodgeT > 0 && !P.ground) gs = .35;
+  if (P.dodgeT > 0) { gs = 0; P.vy = 0; }
   if (!P.slam) P.vy += G * gs * dt;
   P.y += P.vy * dt; P.x = clamp(P.x + P.vx * dt, 14, AW - 14);
   if (P.dodgeT <= 0 && !P.exec) {                        // 身體碰撞：走不進敵人身體裡（閃避可以穿過）
