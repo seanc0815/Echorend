@@ -27,8 +27,8 @@ body.touch #touch{display:block}
 .krow.on{border-color:#9fe8ff;background:rgba(120,220,255,.18)}
 .krow b{color:#9fe8ff;min-width:60px;text-align:right}
 #menu .help i{font-style:normal;color:#ff7a8a}
-#rot{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#05050a;font-size:20px;z-index:9}
-@media (orientation:portrait){body.touch #rot{display:flex}}
+/* 手機直拿時把整個遊戲轉 90 度，強制橫向（2026-10-17）；手機鎖定直向也能玩 */
+body.rot #wrap,body.rot #touch,body.rot #menu{inset:auto;top:0;left:0;transform-origin:top left;transform:rotate(90deg) translateY(-100%)}
 </style>
 <div id="wrap"><canvas id="cv"></canvas></div>
 <div id="touch">
@@ -41,7 +41,6 @@ body.touch #touch{display:block}
   <div class="tb sm" id="bPause" style="right:14px;top:12px">❚❚</div>
 </div>
 <div id="menu"></div>
-<div id="rot">請把手機橫放 ⟳</div>
 <script>
 'use strict';
 // 餘響 Echorend 戰鬥試玩（2026-10-16，原名「斷界」）：只做戰鬥手感。角色用簡單圖形。
@@ -57,8 +56,13 @@ if (isTouch) document.body.classList.add('touch');
 
 let K = 1, CSS = 1;
 const BRK_HIT = .3;              // 普通攻擊削界限的倍率
+let ROT = false;                           // 手機直拿 → 畫面整個轉 90 度
 function resize() {
-  CSS = Math.min(innerWidth / VW, innerHeight / VH); K = CSS * (devicePixelRatio || 1);
+  ROT = isTouch && innerHeight > innerWidth;
+  document.body.classList.toggle('rot', ROT);
+  const W = ROT ? innerHeight : innerWidth, H = ROT ? innerWidth : innerHeight;
+  for (const el of [$('wrap'), $('touch'), menu]) { el.style.width = ROT ? W + 'px' : ''; el.style.height = ROT ? H + 'px' : ''; }
+  CSS = Math.min(W / VW, H / VH); K = CSS * (devicePixelRatio || 1);
   cv.width = Math.round(VW * K); cv.height = Math.round(VH * K);
   cv.style.width = Math.round(VW * CSS) + 'px'; cv.style.height = Math.round(VH * CSS) + 'px';
 }
@@ -1516,7 +1520,8 @@ document.querySelectorAll('.tb[data-k]').forEach(b => {
 });
 const pad = $('pad'), knob = $('knob'); let padId = null;
 function padMove(e) {
-  const r = pad.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const r = pad.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  if (ROT) [dx, dy] = [dy, -dx];                         // 畫面轉了 90 度：手指方向也轉回來
   TOUCH.l = dx < -14; TOUCH.r = dx > 14; TOUCH.u = dy < -26; TOUCH.d = dy > 26;
   const m = Math.hypot(dx, dy) || 1, s = Math.min(1, 40 / m); knob.style.transform = `translate(${dx * s}px,${dy * s}px)`;
 }
@@ -1524,7 +1529,9 @@ pad.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); padI
 pad.addEventListener('pointermove', e => { if (e.pointerId === padId) padMove(e); });
 const padUp = e => { if (e.pointerId !== padId) return; padId = null; TOUCH.l = TOUCH.r = TOUCH.u = TOUCH.d = 0; knob.style.transform = ''; };
 pad.addEventListener('pointerup', padUp); pad.addEventListener('pointercancel', padUp); pad.addEventListener('lostpointercapture', padUp);
-cv.addEventListener('pointerdown', e => { audioInit(); Q.any = 1; const r = cv.getBoundingClientRect(); Q.tapY = (e.clientY - r.top) / r.height * VH; Q.tapX = (e.clientX - r.left) / r.width * VW; });
+cv.addEventListener('pointerdown', e => { audioInit(); Q.any = 1; const r = cv.getBoundingClientRect();
+  if (ROT) { Q.tapX = (e.clientY - r.top) / r.height * VW; Q.tapY = (r.right - e.clientX) / r.width * VH; }
+  else { Q.tapY = (e.clientY - r.top) / r.height * VH; Q.tapX = (e.clientX - r.left) / r.width * VW; } });
 $('bPause').addEventListener('pointerdown', e => { e.preventDefault(); if (scene === 'play') paused ? resume() : showPause(); });
 
 function helpHTML() {
@@ -1649,6 +1656,8 @@ document.addEventListener('touchend', e => { const now = Date.now(); if (now - l
 document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(resize, 120));
+try { if (isTouch && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
 resize();
 showTitle();
 requestAnimationFrame(frame);
