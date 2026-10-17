@@ -13,6 +13,8 @@ body.touch #touch{display:block}
 .tb.sm{width:40px;height:40px;font-size:12px}
 #pad{position:absolute;left:calc(62px + env(safe-area-inset-left,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.16);pointer-events:auto}
 #knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.18)}
+#pad{opacity:.45;transition:opacity .15s}
+#pad.on{opacity:1}
 #menu{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(5,4,8,.78);text-align:center;padding:16px;box-sizing:border-box}
 #menu h1{font-family:"Noto Serif TC","Songti TC","PMingLiU",serif;font-size:46px;letter-spacing:.35em;margin:0 0 0 .35em;color:#fff;text-shadow:0 0 22px rgba(255,40,60,.7)}
 #menu h2{margin:0;font-size:24px;letter-spacing:.2em}
@@ -44,7 +46,7 @@ body.rot #wrap,body.rot #touch,body.rot #menu{inset:auto;top:0;left:0;transform-
 <script>
 'use strict';
 // 餘響 Echorend 戰鬥試玩（2026-10-16，原名「斷界」）：只做戰鬥手感。角色用簡單圖形。
-const VW = 480, VH = 270, STEP = 1 / 120, FLOOR = 232, AW = 1100, G = 1700, RUN = 165;
+let VW = 480; const VH = 270, STEP = 1 / 120, FLOOR = 232, AW = 1100, G = 1700, RUN = 165;
 const DODGE = .26, PARRY = .18;     // 彈反窗口 0.22 秒（原 .17；配合出手前 0.32 秒的亮光提示）
 const GLINT = .32;                  // 出手前多久亮白光＋「叮」：看到後約 0.1～0.3 秒內按彈反都接得到
 const $ = id => document.getElementById(id);
@@ -57,11 +59,23 @@ if (isTouch) document.body.classList.add('touch');
 let K = 1, CSS = 1;
 const BRK_HIT = .3;              // 普通攻擊削界限的倍率
 let ROT = false;                           // 手機直拿 → 畫面整個轉 90 度
+// 手機的安全區域（瀏海、狀態列、Home 條）：用一個看不見的元素量出來
+const insetProbe = document.createElement('div');
+insetProbe.style.cssText = 'position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+document.body.appendChild(insetProbe);
+function insets() { const c = getComputedStyle(insetProbe); return { t: parseFloat(c.paddingTop) || 0, r: parseFloat(c.paddingRight) || 0, b: parseFloat(c.paddingBottom) || 0, l: parseFloat(c.paddingLeft) || 0 }; }
 function resize() {
   ROT = isTouch && innerHeight > innerWidth;
   document.body.classList.toggle('rot', ROT);
-  const W = ROT ? innerHeight : innerWidth, H = ROT ? innerWidth : innerHeight;
-  for (const el of [$('wrap'), $('touch'), menu]) { el.style.width = ROT ? W + 'px' : ''; el.style.height = ROT ? H + 'px' : ''; }
+  // 2026-10-17：手機上避開狀態列／Home 條，並讓遊戲畫面依螢幕比例變寬來填滿（不再留兩側黑邊）
+  const ins = insets();
+  const W = ROT ? innerHeight - ins.t - ins.b : innerWidth - (isTouch ? ins.l + ins.r : 0), H = ROT ? innerWidth : innerHeight;
+  for (const el of [$('wrap'), $('touch'), menu]) {
+    if (ROT) { el.style.top = ins.t + 'px'; el.style.left = '0px'; el.style.right = ''; el.style.bottom = ''; el.style.width = W + 'px'; el.style.height = H + 'px'; }
+    else if (isTouch) { el.style.top = '0px'; el.style.left = ins.l + 'px'; el.style.right = ''; el.style.bottom = ''; el.style.width = W + 'px'; el.style.height = H + 'px'; }
+    else { el.style.top = el.style.left = el.style.width = el.style.height = el.style.right = el.style.bottom = ''; }
+  }
+  VW = isTouch ? clamp(Math.round(VH * W / H), 480, 640) : 480;    // 畫面寬度（遊戲世界單位）：手機上跟著螢幕比例
   CSS = Math.min(W / VW, H / VH); K = CSS * (devicePixelRatio || 1);
   cv.width = Math.round(VW * K); cv.height = Math.round(VH * K);
   cv.style.width = Math.round(VW * CSS) + 'px'; cv.style.height = Math.round(VH * CSS) + 'px';
@@ -1260,7 +1274,7 @@ function drawAria(e, state, fx2) {
 
 // ----- 劇本 -----
 const CH1 = [
-  { t: 'scene', theme: 'alley', x: 60 },
+  { t: 'scene', theme: 'alley', x: 150 },
   { t: 'photo' },
   { t: 'card', title: '第一章　空白的照片', sub: '暗巷追獵', dur: 2.6 },
   { t: 'say', lines: [['澪', '凌夜，目標就在前面的死巷。'], ['凌夜', '看到了。兩隻，不難。'], ['凌夜', '又是被丟掉的痛苦……一靠近頭就痛。'], ['澪', '小心，政府的人已經在附近了。'], ['凌夜', '三分鐘內解決。']] },
@@ -1268,7 +1282,7 @@ const CH1 = [
   { t: 'goto', x: 420, hint: '往右走' },
   { t: 'fight', spawns: [['grunt', 1, 0], ['grunt', 1, .7]] },
   { t: 'choice', opts: [{ text: '謝啦澪，每次都靠妳盯梢。', who: 'mio', note: '澪 好感 +1' }, { text: '賞金記得明天匯給我。', money: 500, note: '賞金 +500' }] },
-  { t: 'scene', theme: 'lot', x: 80 },
+  { t: 'scene', theme: 'lot', x: 150 },
   { t: 'card', title: '冰刃突襲', sub: '廢棄停車場', dur: 2.2 },
   { t: 'say', lines: [['夏凜', '非法獵人，把刀放下。'], ['凌夜', '……我趕時間，頭很痛。讓開。'], ['夏凜', '照規定，你得跟我走。'], ['凌夜', '那就先砍中我。']] },
   { t: 'unlock', skills: ['dodge', 'parry'], text: () => `紅色 ! → ${KL('parry')} 彈反　　黃色 ! → ${KL('dodge')} 閃避或跳開（剛好閃過＝慢動作）` },
@@ -1279,21 +1293,21 @@ const CH1 = [
   { t: 'fight', spawns: [['spike', 1, 0], ['spike', 1, .4], ['spike', -1, .8], ['spike', 1, 1.2], ['spike', -1, 1.6]] },
   { t: 'choice', opts: [{ text: '別逞強，繃帶拿去。', who: 'xialin', note: '夏凜 好感 +1' }, { text: '知道了，我先撤。', who: 'mio', note: '澪 好感 +1' }] },
   { t: 'say', lines: [['', '裂縫擴大，吞掉了退路。兩人只能往下走。']] },
-  { t: 'scene', theme: 'crack', x: 60 },
+  { t: 'scene', theme: 'crack', x: 150 },
   { t: 'card', title: '處決教學戰', sub: '裂縫入口', dur: 2.2 },
   { t: 'goto', x: 300, hint: '往右走' },
   { t: 'say', lines: [['夏凜', '牠的殼太硬了，砍不穿！'], ['凌夜', '那就砍斷牠的連結。']] },
   { t: 'unlock', skills: ['exec'], text: () => `打空白色「界限條」→ 靠近按 ${KL('hvy')}，斷響` },
   { t: 'fight', spawns: [['brute', 1, 0]] },
   { t: 'say', lines: [['夏凜', '……你剛才那一刀是什麼？'], ['凌夜', '斷響。不想死就跟緊。']] },
-  { t: 'scene', theme: 'deep', x: 60 },
+  { t: 'scene', theme: 'deep', x: 150 },
   { t: 'card', title: '跌落的記憶', sub: '裂縫深處', dur: 2.2 },
   { t: 'say', lines: [['夏凜', '這裡的空氣好難受……全是悲傷。'], ['凌夜', '都是你們幫大家丟掉的東西。'], ['夏凜', '淨化網是為了和平，這是必要的。'], ['凌夜', '把痛苦埋在地下，也叫和平？']] },
   { t: 'fight', spawns: [['grunt', 1, 0], ['spike', 1, .5], ['grunt', -1, 1]] },
   { t: 'pickup', x: 760, hint: '前面有東西' },
   { t: 'say', lines: [['', '一張小孩子的畫。兩個牽著手的人，旁邊寫著「哥」。'], ['凌夜', '……頭好痛。'], ['', '（項鍊微微發光。取得：妹妹的記憶碎片 1／5）']] },
   { t: 'fight', spawns: [['spike', 1, 0], ['spike', -1, .3], ['grunt', 1, .8], ['grunt', -1, 1.4]] },
-  { t: 'scene', theme: 'lab', x: 60 },
+  { t: 'scene', theme: 'lab', x: 150 },
   { t: 'card', title: '一號容器', sub: '裂縫最底層・廢棄實驗室遺跡', dur: 2.6 },
   { t: 'say', lines: [['艾莉亞', '不要過來……我不要回機器裡！'], ['夏凜', '這女孩是誰？能量太恐怖了！'], ['凌夜', '她身上有實驗室編號……先打醒她！']] },
   { t: 'boss', type: 'aria', ev: 'ariaDone' },
@@ -1525,9 +1539,9 @@ function padMove(e) {
   TOUCH.l = dx < -14; TOUCH.r = dx > 14; TOUCH.u = dy < -26; TOUCH.d = dy > 26;
   const m = Math.hypot(dx, dy) || 1, s = Math.min(1, 40 / m); knob.style.transform = `translate(${dx * s}px,${dy * s}px)`;
 }
-pad.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); padId = e.pointerId; try { pad.setPointerCapture(e.pointerId); } catch (_) {} padMove(e); });
+pad.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); pad.classList.add('on'); padId = e.pointerId; try { pad.setPointerCapture(e.pointerId); } catch (_) {} padMove(e); });
 pad.addEventListener('pointermove', e => { if (e.pointerId === padId) padMove(e); });
-const padUp = e => { if (e.pointerId !== padId) return; padId = null; TOUCH.l = TOUCH.r = TOUCH.u = TOUCH.d = 0; knob.style.transform = ''; };
+const padUp = e => { if (e.pointerId !== padId) return; padId = null; pad.classList.remove('on'); TOUCH.l = TOUCH.r = TOUCH.u = TOUCH.d = 0; knob.style.transform = ''; };
 pad.addEventListener('pointerup', padUp); pad.addEventListener('pointercancel', padUp); pad.addEventListener('lostpointercapture', padUp);
 cv.addEventListener('pointerdown', e => { audioInit(); Q.any = 1; const r = cv.getBoundingClientRect();
   if (ROT) { Q.tapX = (e.clientY - r.top) / r.height * VW; Q.tapY = (r.right - e.clientX) / r.width * VH; }
