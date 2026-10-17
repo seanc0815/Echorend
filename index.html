@@ -639,7 +639,61 @@ function drawFloor(cx) {
   ctx.fillStyle = 'rgba(220,200,180,.12)';
   for (let x = 0; x < AW; x += 60) ctx.fillRect(x, FLOOR + 14, 30, 2);
 }
+// ---------- 精靈圖（2026-10-17：暫用像素圖，tools/gen_sprites.py 產生；格式＝Aseprite 匯出的 Array＋Frame Tags，組員畫好直接蓋掉 sprites/*.png/json）
+const SPR = {};
+function loadSprite(name) {
+  fetch(`sprites/${name}.json`).then(r => r.json()).then(j => {
+    const img = new Image();
+    img.onload = () => {
+      const fr = Array.isArray(j.frames) ? j.frames : Object.values(j.frames);
+      const tags = {}; for (const t of j.meta.frameTags || []) tags[t.name] = t;
+      const w = fr[0].sourceSize ? fr[0].sourceSize.w : fr[0].frame.w, h = fr[0].sourceSize ? fr[0].sourceSize.h : fr[0].frame.h;
+      SPR[name] = { img, fr, tags, piv: j.meta.pivot || { x: w / 2, y: h - 4 }, tint: {} };
+    };
+    img.src = `sprites/${j.meta.image.split(/[\/]/).pop()}`;
+  }).catch(() => {});          // 讀不到 → 用原本的線條畫法
+}
+['hero', 'xialin', 'aria'].forEach(loadSprite);
+function sprTinted(s, col) {    // 整張圖染成單色（衝刺殘影、受傷閃紅、被打閃白）
+  if (s.tint[col]) return s.tint[col];
+  const c = document.createElement('canvas'); c.width = s.img.width; c.height = s.img.height;
+  const g = c.getContext('2d'); g.drawImage(s.img, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = col; g.fillRect(0, 0, c.width, c.height);
+  return (s.tint[col] = c);
+}
+// 畫一幀：t＝這個動作開始後經過的秒數；loop=false 停在最後一幀。沒有這個圖或動作 → 回傳 false
+function drawSpr(name, tag, t, x, y, f, o = {}) {
+  const s = SPR[name]; if (!s) return false;
+  const tg = s.tags[tag] || s.tags[o.alt]; if (!tg) return false;
+  let tot = 0; for (let i = tg.from; i <= tg.to; i++) tot += s.fr[i].duration;
+  let ms = Math.max(0, t * 1000); ms = o.loop === false ? Math.min(ms, tot - 1) : ms % tot;
+  let i = tg.from; while (i < tg.to && ms >= s.fr[i].duration) { ms -= s.fr[i].duration; i++; }
+  const F = s.fr[i], fr = F.frame, off = F.spriteSourceSize || { x: 0, y: 0 };
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  ctx.translate(Math.round(x), Math.round(y)); ctx.scale(f, 1);
+  const dx = off.x - s.piv.x, dy = off.y - s.piv.y;
+  ctx.globalAlpha *= o.alpha ?? 1;
+  if (!o.tintOnly) ctx.drawImage(s.img, fr.x, fr.y, fr.w, fr.h, dx, dy, fr.w, fr.h);
+  if (o.tint) { ctx.globalAlpha *= o.tintA ?? 1; ctx.drawImage(sprTinted(s, o.tint), fr.x, fr.y, fr.w, fr.h, dx, dy, fr.w, fr.h); }
+  ctx.restore();
+  return true;
+}
+function heroAnim(pose) {      // 主角目前的動作 → [動作名稱, 經過秒數, 是否循環]
+  if (pose === 'exec' && P.exec) return ['exec', P.exec.t, false];
+  if (pose === 'dodge') return ['dash', P.dodgeT > 0 ? DODGE - P.dodgeT : .05, false];
+  if (pose === 'parry') return ['parry', PARRY - P.parryT, false];
+  if (pose === 'hurt') return ['hurt', .32 - P.hurtT, false];
+  if (P.hp <= 0) return ['death', deadT, false];
+  if (P.atk) return [P.atk.name, P.atk.t, false];
+  if (P.slam) return ['slam', T, true];
+  if (!P.ground) return [P.vy < 0 ? 'rise' : 'fall', T, true];
+  if (pose === 'run') return ['run', T, true];
+  return ['idle', T, true];
+}
 function drawHero(x, y, f, pose, alpha, tint) {
+  if (SPR.hero) {
+    const [tag, t, loop] = heroAnim(pose), ghost = pose === 'dodge' && tint;
+    if (drawSpr('hero', tag, t, x, y, f, { loop, alpha, tint: tint || (P.bladeFlash > 0 ? '#ffffff' : null), tintA: ghost ? 1 : tint ? .55 : .5, tintOnly: ghost, alt: 'idle' })) return;
+  }
   ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.scale(f, 1);
   const body = tint || '#191b24', A = P.atk;
   let lean = 0, crouch = 0;
@@ -795,6 +849,7 @@ function drawEnemyShape(e, wob, state, flashOn) {
 const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
 const lerpA = (a, b, k) => a + (b - a) * k;
 function drawEnemy(e) {
+  if (e._ps !== e.state) { e._ps = e.state; e._s0 = T; }          // 精靈圖：這個狀態從何時開始
   if (e.state === 'spawn') { ctx.globalAlpha = clamp(1 - e.t / .7, 0, 1); }
   const jx = e.shakeT > 0 ? rnd(-2, 2) : 0;
   ctx.save(); ctx.translate(jx, 0);
@@ -1202,6 +1257,14 @@ function aiXialin(e, dt, dx, dist) {
   }
 }
 function drawXialin(e, state, fx2) {
+  if (SPR.xialin) {
+    const tag = { chase: 'chase', dash: 'dash', wind: 'wind', strike: 'strike', air: 'air', recover: 'recover', hurt: 'hurt', stagger: 'stagger', broken: 'broken', down: 'down', yield: 'down' }[state] || 'idle';
+    const loop = !['wind', 'strike', 'recover', 'hurt', 'stagger', 'down'].includes(tag);
+    if (drawSpr('xialin', tag, T - (e._s0 ?? 0), e.x, e.y, e.face, { loop, tint: fx2 ? '#ffffff' : null, tintA: .85 })) {
+      if (state === 'wind') { const c = e.unparry ? '#ffcc33' : '#ff3a4a'; ctx.font = '900 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 8; ctx.fillText('!', e.x, e.y - e.h - 16 + Math.sin(T * 30) * 1.5); ctx.shadowBlur = 0; }
+      return;
+    }
+  }
   const x = e.x, y = e.y, f = e.face, col = fx2 ? '#fff' : '#e8eef5', dark = fx2 ? '#fff' : '#2a3a4a';
   ctx.save(); ctx.translate(x, y); ctx.scale(f, 1);
   ctx.strokeStyle = dark; ctx.lineWidth = 3; ctx.lineCap = 'round';
@@ -1260,6 +1323,14 @@ function aiAria(e, dt, dx, dist) {
 function drawAria(e, state, fx2) {
   const x = e.x, y = e.y, f = e.face, col = fx2 ? '#fff' : '#f2e9f5', hair = fx2 ? '#fff' : '#dcd2ff';
   glow(x, y - 20, 40 + Math.sin(T * 3) * 3, e.phase === 2 ? 'rgba(255,120,160,.6)' : 'rgba(160,200,255,.5)', .5);
+  if (SPR.aria) {
+    const base = { tele: 'tele', wind: 'wind', strike: 'strike', hurt: 'hurt', stagger: 'hurt', air: 'hurt', down: 'hurt', broken: 'broken' }[state] || 'idle';
+    const tag = e.phase === 2 ? base + '2' : base, loop = base === 'idle' || base === 'broken';
+    if (drawSpr('aria', tag, T - (e._s0 ?? 0), x, y, f, { loop, alt: base, tint: fx2 ? '#ffffff' : null, tintA: .85 })) {
+      if (state === 'wind') { const c = e.unparry ? '#ffcc33' : '#ff3a4a'; ctx.font = '900 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 8; ctx.fillText('!', x, y - e.h - 12 + Math.sin(T * 30) * 1.5); ctx.shadowBlur = 0; }
+      return;
+    }
+  }
   ctx.save(); ctx.translate(x, y); ctx.scale(f, 1);
   ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-6, -4); ctx.lineTo(-7, -26); ctx.lineTo(7, -26); ctx.lineTo(8, -4); ctx.lineTo(3, 0); ctx.lineTo(-2, 0); ctx.fill();   // 白裙、赤腳
   ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(1, -32, 6, 0, 6.283); ctx.fill();
