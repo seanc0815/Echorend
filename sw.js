@@ -1,6 +1,6 @@
 // 離線快取（build_pages.py 產生，不要手改）
-const V = "echorend-3f9b9ba910";
-const CORE = ["./", "index.html", "manifest.json", "icon.png", "sprites/hero.png", "sprites/hero.json", "sprites/xialin.png", "sprites/xialin.json", "sprites/aria.png", "sprites/aria.json", "cut/p01.jpg", "cut/p02.jpg", "cut/p04.jpg", "cut/p07.jpg"];
+const V = "echorend-255a929aef";
+const CORE = ["./", "index.html", "manifest.json", "icon.png", "sprites/hero.png", "sprites/hero.json", "sprites/xialin.png", "sprites/xialin.json", "sprites/aria.png", "sprites/aria.json"];
 const FONT = /^https:\/\/fonts\.(googleapis|gstatic)\.com\//;
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(V).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

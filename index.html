@@ -1,6 +1,6 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="餘響"><meta name="theme-color" content="#0a070e"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png"><link rel="icon" href="icon.png"><style>body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style><script>if('serviceWorker' in navigator&&(location.protocol==='https:'||['localhost','127.0.0.1'].includes(location.hostname)))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script><meta charset="utf-8">
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="幻痛之刃"><meta name="theme-color" content="#0a070e"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png"><link rel="icon" href="icon.png"><style>body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style><script>if('serviceWorker' in navigator&&(location.protocol==='https:'||['localhost','127.0.0.1'].includes(location.hostname)))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>餘響 Echorend</title>
+<title>幻痛之刃</title>
 <style>
 html,body{margin:0;height:100%;background:#05050a;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;color:#eee}
 #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
@@ -45,7 +45,7 @@ body.rot #wrap,body.rot #touch,body.rot #menu{inset:auto;top:0;left:0;transform-
 <div id="menu"></div>
 <script>
 'use strict';
-// 餘響 Echorend 戰鬥試玩（2026-10-16，原名「斷界」）：只做戰鬥手感。角色用簡單圖形。
+// 《幻痛之刃》（2026-10-26 照組員企畫書定名；曾名「斷界」「餘響」，檔案與網址仍叫 echorend）：2D 貓咪劇情動作遊戲，第一章。
 let VW = 480; const VH = 270, STEP = 1 / 120, FLOOR = 232, AW = 1100, G = 1700, RUN = 165;
 const DODGE = .26, PARRY = .18;     // 彈反窗口 0.22 秒（原 .17；配合出手前 0.32 秒的亮光提示）
 const GLINT = .32;                  // 出手前多久亮白光＋「叮」：看到後約 0.1～0.3 秒內按彈反都接得到
@@ -1343,79 +1343,83 @@ function drawAria(e, state, fx2) {
   if (state === 'wind') { const c = e.unparry ? '#ffcc33' : '#ff3a4a'; ctx.font = '900 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 8; ctx.fillText('!', x, y - e.h - 12 + Math.sin(T * 30) * 1.5); ctx.shadowBlur = 0; }
 }
 
-// ----- 序章：漫劇式過場（2026-10-17：Gabi「開始遊戲時從介紹主角開始慢慢鋪墊」）-----
-// 每個鏡頭：img＝cut/<名稱>.jpg（沒有圖就畫「待生圖」佔位）；cam＝[起點, 終點]，每點 [中心x, 中心y, 放大]（0~1，以整張圖為準）；
+// ----- 第一章開場（2026-10-26，照組員《劇情大綱_第一章新版》：雨夜、招牌、斷響、殘響的哭聲）-----
+// 每個鏡頭：img＝cut/<名稱>.jpg（沒有圖就畫「待生圖」佔位，desc 是給生圖用的畫面說明）；cam＝[起點, 終點]，每點 [中心x, 中心y, 放大]；
 // lines＝字幕（按鍵逐句）；沒有字幕就照 dur 自動換下一個；text＝純文字鏡頭；fx：flash 白閃／shake 震動／glitch 雜訊
-const PROLOGUE = [
-  { text: '2094 年，冬。', dur: 3 },
-  { img: 'p01', desc: '清晨的小公寓廚房，凌音踮腳煎蛋，回頭笑', cam: [[.5, .5, 1.12], [.56, .45, 1.25]], lines: [['凌音', '哥，起床了！蛋又要焦了啦。']] },
-  { img: 'p02', desc: '凌夜頭髮亂翹，從房門探頭，一臉沒睡醒', cam: [[.5, .4, 1.25], [.5, .45, 1.1]], lines: [['凌夜', '……再五分鐘。'], ['凌音', '你每次都說五分鐘。']] },
-  { img: 'p03', desc: '客廳，相機架在書櫃上，一家四口擠在沙發前，凌音拉著凌夜的手臂', cam: [[.35, .5, 1.3], [.62, .5, 1.15]], lines: [['凌音', '爸、媽，快點！計時器要響了！'], ['凌夜', '我又沒說要拍……']] },
-  { img: 'p03', desc: '（快門）', cam: [[.5, .5, 1.05], [.5, .5, 1.05]], fx: 'flash', dur: 1.6 },
-  { text: '三天後。', dur: 2.4 },
-  { img: 'p04', desc: '傍晚的門口，穿白色制服的政府人員遞出通知，凌音握著門把', cam: [[.7, .45, 1.3], [.45, .5, 1.1]], lines: [['', '「凌音小姐，妳被選為公共計畫的協力者。」'], ['凌音', '……哥，我很快就回來。']] },
-  { img: 'p05', desc: '雨夜，凌夜在街上狂奔，遠處是發著白光的巨大設施', cam: [[.3, .55, 1.25], [.6, .45, 1.05]], fx: 'shake', lines: [['', '她沒有回來。']] },
-  { img: 'p06', desc: '設施深處，玻璃後面凌音被接在機器上，白色的訊號像波一樣掃過整個房間', cam: [[.5, .5, 1.05], [.5, .42, 1.35]], fx: 'glitch', lines: [['凌夜', '凌音——！'], ['', '白光打進腦中。名字、聲音、笑臉，一樣一樣被抹掉。']] },
-  { img: 'p07', desc: '特寫：凌夜手中浮現藍色光刃，一刀斬斷白色訊號', cam: [[.5, .5, 1.4], [.5, .5, 1.1]], fx: 'flash', lines: [['凌夜', '……不准拿走。']] },
-  { text: '那一天，全世界都忘了她。', dur: 3.4 },
-  { img: 'p08', desc: '家中餐桌只擺三副碗筷，牆上的全家福中間空了一個人', cam: [[.5, .45, 1.05], [.62, .35, 1.4]], lines: [['凌夜', '……凌音呢？'], ['媽媽', '誰？']] },
-  { text: '三年後。', dur: 2.6 },
+const OPENING = [
+  { text: '2097 年，第七城區。雨下了一整夜。', dur: 3.2 },
+  { img: 'o01', desc: '黑貓凌夜蹲在廢棄大樓最高處的招牌上，尾巴垂在身後。霓虹把積水染成藍紫色，懸浮列車穿過高樓，街上的貓撐著透明雨傘', cam: [[.5, .3, 1.3], [.5, .55, 1.05]], lines: [['', '這座城市很少有悲傷。至少，看起來是這樣。']] },
+  { img: 'o02', desc: '特寫：右前爪的金屬爪套微微震動，雨水從鬍鬚旁滑落，耳朵向後壓低', cam: [[.5, .5, 1.1], [.5, .5, 1.35]], lines: [['凌夜', '……來了。'], ['', '巷子深處傳來聲響。喀。喀。喀。不像腳步，更像有什麼東西正用爪子刮著牆壁。']] },
+  { img: 'o03', desc: '三道金屬刃沿著前爪彈出，淡白色的光沿著爪刃亮起', cam: [[.4, .5, 1.3], [.6, .5, 1.1]], fx: 'flash', dur: 1.8 },
+  { img: 'o04', desc: '從七層樓高的招牌一躍而下，後爪踩上牆面翻身，前爪向下一揮', cam: [[.5, .2, 1.1], [.5, .8, 1.3]], fx: 'shake', lines: [['凌夜', '斷響。']] },
+  { img: 'o05', desc: '一道白色爪痕劃過黑暗。躲在巷子裡的殘響從中央裂開，沒有血，只有大量黑色碎片從傷口飄出', cam: [[.5, .5, 1.4], [.5, .5, 1.05]], fx: 'flash', lines: [['', '黑色碎片沒有消失。它們在哭。'], ['？？？', '不要忘記我……'], ['？？？', '我不想一個人……'], ['？？？', '好痛……']] },
+  { img: 'o06', desc: '凌夜落在積水裡，閉上眼睛，無數黑色碎片繞著他飄', cam: [[.5, .5, 1.05], [.5, .4, 1.3]], fx: 'glitch', lines: [['', '每殺掉一隻殘響，就會留下不屬於自己的聲音。其他獵手說，那只是怪物死前的雜訊。'], ['', '凌夜從來不相信。因為三年前，他也聽過同樣的聲音。'], ['', '而且那一次——他認得聲音的主人。']] },
+];
+// 碰到緞帶時閃過的記憶（臉一片空白）
+const MEMORY = [
+  { img: 'm01', desc: '爪尖碰到緞帶的瞬間：陽光、窗戶、一條晃來晃去的小尾巴（溫暖、過曝）', cam: [[.5, .5, 1.4], [.5, .5, 1.05]], fx: 'flash', lines: [['', '陽光。窗戶。還有一條晃來晃去的尾巴。']] },
+  { img: 'm02', desc: '某隻比他小很多的貓站在前面回過頭，嘴巴動了一下——臉的位置是一片空白的光', cam: [[.5, .4, 1.1], [.5, .4, 1.35]], fx: 'glitch', lines: [['？？？', '（她回過頭，說了什麼。凌夜聽不見。）'], ['', '畫面立刻破碎。'], ['', '不知道為什麼，他知道這條緞帶屬於誰。可是當他試圖想起那張臉——腦海裡只剩下一片空白。']] },
 ];
 // ----- 劇本 -----
 const CH1 = [
-  { t: 'cut', shots: PROLOGUE },
+  { t: 'cut', shots: OPENING },
   { t: 'scene', theme: 'alley', x: 150 },
-  { t: 'photo' },
-  { t: 'card', title: '第一章　空白的照片', sub: '暗巷追獵', dur: 2.6 },
-  { t: 'say', lines: [['澪', '凌夜，目標就在前面的死巷。'], ['凌夜', '看到了。兩隻，不難。'], ['凌夜', '又是被丟掉的痛苦……一靠近頭就痛。'], ['澪', '小心，政府的人已經在附近了。'], ['凌夜', '三分鐘內解決。']] },
-  { t: 'unlock', skills: ['hvy'], text: () => `${KL('atk')} 連打四段　${KL('hvy')} 挑空／空中下砸` },
+  { t: 'card', title: '第一章　空白的照片', sub: '第七城區・雨夜的後巷', dur: 2.6 },
+  { t: 'say', lines: [['澪', '凌夜！你又發呆了？'], ['凌夜', '沒有。'], ['澪', '你每次說「沒有」的時候，就是有。'], ['凌夜', '澪，任務結束了。'], ['澪', '等等……附近又出現兩個異常訊號。'], ['凌夜', '位置？'], ['澪', '就在你前面的死巷。'], ['凌夜', '看到了。兩隻，不難。'], ['澪', '小心，界防局的人已經在附近了。'], ['凌夜', '三分鐘內解決。']] },
+  { t: 'unlock', skills: ['hvy'], text: () => `${KL('atk')} 爪擊連打四段　${KL('hvy')} 挑空／空中下砸` },
   { t: 'goto', x: 420, hint: '往右走' },
   { t: 'fight', spawns: [['grunt', 1, 0], ['grunt', 1, .7]] },
+  { t: 'say', lines: [['澪', '還有一個訊號……就在你正前方。'], ['凌夜', '前面什麼都沒有，只有一堵牆。妳的情報是不是又錯了？'], ['澪', '我的情報從來不會錯。'], ['凌夜', '上次妳說目標在三樓。我跳進去，裡面是女澡堂。'], ['澪', '……那次是意外。'], ['凌夜', '妳笑了。'], ['澪', '我沒有。']] },
   { t: 'choice', opts: [{ text: '謝啦澪，每次都靠妳盯梢。', who: 'mio', note: '澪 好感 +1' }, { text: '賞金記得明天匯給我。', money: 500, note: '賞金 +500' }] },
+  { t: 'pickup', x: 600, hint: '積水中央有東西', item: 'ribbon' },
+  { t: 'say', lines: [['', '右前爪突然刺痛。爪套沒有故障，痛的是爪子本身——像有一條看不見的線，纏住了骨頭。'], ['', '剛才殘響消失的位置，只剩下一條很舊的紅色緞帶。']] },
+  { t: 'cut', shots: MEMORY },
+  { t: 'photo' },
+  { t: 'say', lines: [['澪', '……凌夜？你怎麼了？'], ['凌夜', '沒事。'], ['澪', '真的？'], ['凌夜', '嗯。'], ['', '他把緞帶收進外套內側。遠處，淨化塔頂的螢幕正在播放城市宣傳——'], ['', '「忘記痛苦，才能擁抱明天。」'], ['', '每次看到這句話，他的爪子都會痛。就像身體在提醒他：有些東西，他絕對不能忘記。即使他已經不知道，那究竟是什麼。']] },
   { t: 'scene', theme: 'lot', x: 150 },
-  { t: 'card', title: '冰刃突襲', sub: '廢棄停車場', dur: 2.2 },
-  { t: 'say', lines: [['夏凜', '非法獵人，把刀放下。'], ['凌夜', '……我趕時間，頭很痛。讓開。'], ['夏凜', '照規定，你得跟我走。'], ['凌夜', '那就先砍中我。']] },
+  { t: 'card', title: '冰爪突襲', sub: '牆後的廢棄停車場', dur: 2.2 },
+  { t: 'say', lines: [['夏凜', '非法獵人，把爪刃收起來。'], ['凌夜', '……我趕時間，爪子很痛。讓開。'], ['夏凜', '照規定，你得跟我走。'], ['凌夜', '那就先抓中我。']] },
   { t: 'unlock', skills: ['dodge', 'parry'], text: () => `紅色 ! → ${KL('parry')} 彈反　　黃色 ! → ${KL('dodge')} 閃避或跳開（剛好閃過＝慢動作）` },
   { t: 'boss', type: 'xialin', ev: 'xialinHalf' },
-  { t: 'say', lines: [['夏凜', '嘖……你的刀法是誰教的？'], ['凌夜', '沒人教。']] },
+  { t: 'say', lines: [['夏凜', '嘖……你的爪法是誰教的？'], ['凌夜', '沒人教。']] },
   { t: 'quake', title: '地面崩裂' },
-  { t: 'say', lines: [['夏凜', '嘖……裂縫怎麼開在這裡！'], ['凌夜', '喂，妳的手在流血。'], ['夏凜', '不用你管，我還能打！'], ['澪', '凌夜，政府援軍要到了，現在走！']] },
+  { t: 'say', lines: [['夏凜', '嘖……裂縫怎麼開在這裡！'], ['凌夜', '喂，妳的前爪在流血。'], ['夏凜', '不用你管，我還能打！'], ['澪', '凌夜，界防局援軍要到了，現在走！']] },
   { t: 'fight', spawns: [['spike', 1, 0], ['spike', 1, .4], ['spike', -1, .8], ['spike', 1, 1.2], ['spike', -1, 1.6]] },
   { t: 'choice', opts: [{ text: '別逞強，繃帶拿去。', who: 'xialin', note: '夏凜 好感 +1' }, { text: '知道了，我先撤。', who: 'mio', note: '澪 好感 +1' }] },
-  { t: 'say', lines: [['', '裂縫擴大，吞掉了退路。兩人只能往下走。']] },
+  { t: 'say', lines: [['', '裂縫擴大，吞掉了退路。兩隻貓只能往下走。']] },
   { t: 'scene', theme: 'crack', x: 150 },
   { t: 'card', title: '處決教學戰', sub: '裂縫入口', dur: 2.2 },
   { t: 'goto', x: 300, hint: '往右走' },
-  { t: 'say', lines: [['夏凜', '牠的殼太硬了，砍不穿！'], ['凌夜', '那就砍斷牠的連結。']] },
+  { t: 'say', lines: [['夏凜', '牠的殼太硬了，抓不穿！'], ['凌夜', '那就砍斷牠的連結。']] },
   { t: 'unlock', skills: ['exec'], text: () => `打空白色「界限條」→ 靠近按 ${KL('hvy')}，斷響` },
   { t: 'fight', spawns: [['brute', 1, 0]] },
-  { t: 'say', lines: [['夏凜', '……你剛才那一刀是什麼？'], ['凌夜', '斷響。不想死就跟緊。']] },
+  { t: 'say', lines: [['夏凜', '……你剛才那一爪是什麼？'], ['凌夜', '斷響。不想死就跟緊。']] },
   { t: 'scene', theme: 'deep', x: 150 },
   { t: 'card', title: '跌落的記憶', sub: '裂縫深處', dur: 2.2 },
   { t: 'say', lines: [['夏凜', '這裡的空氣好難受……全是悲傷。'], ['凌夜', '都是你們幫大家丟掉的東西。'], ['夏凜', '淨化網是為了和平，這是必要的。'], ['凌夜', '把痛苦埋在地下，也叫和平？']] },
   { t: 'fight', spawns: [['grunt', 1, 0], ['spike', 1, .5], ['grunt', -1, 1]] },
   { t: 'pickup', x: 760, hint: '前面有東西' },
-  { t: 'say', lines: [['', '一張小孩子的畫。兩個牽著手的人，旁邊寫著「哥」。'], ['凌夜', '……頭好痛。'], ['', '（項鍊微微發光。取得：妹妹的記憶碎片 1／5）']] },
+  { t: 'say', lines: [['', '一張小貓畫的畫。兩隻牽著前爪的貓，旁邊歪歪地寫著「哥」。'], ['凌夜', '……頭好痛。'], ['', '（外套內側的緞帶微微發熱。取得：記憶碎片 1／5）']] },
   { t: 'fight', spawns: [['spike', 1, 0], ['spike', -1, .3], ['grunt', 1, .8], ['grunt', -1, 1.4]] },
   { t: 'scene', theme: 'lab', x: 150 },
-  { t: 'card', title: '一號容器', sub: '裂縫最底層・廢棄實驗室遺跡', dur: 2.6 },
-  { t: 'say', lines: [['艾莉亞', '不要過來……我不要回機器裡！'], ['夏凜', '這女孩是誰？能量太恐怖了！'], ['凌夜', '她身上有實驗室編號……先打醒她！']] },
+  { t: 'card', title: '一號實驗體', sub: '裂縫最底層・廢棄實驗室遺跡', dur: 2.6 },
+  { t: 'say', lines: [['艾莉亞', '不要過來……我不要回機器裡！'], ['夏凜', '這隻白貓是誰？能量太恐怖了！'], ['凌夜', '她身上有實驗體編號……先打醒她！']] },
   { t: 'boss', type: 'aria', ev: 'ariaDone' },
-  { t: 'say', lines: [['', '艾莉亞跌坐在地上。她看著凌夜收刀的動作，和他脖子上的項鍊。']] },
-  { t: 'choice', opts: [{ text: '沒事了，手給我。我不是來抓妳的。', who: 'aria', note: '艾莉亞 好感 +1' }, { text: '說，妳身上為什麼有政府編號？', info: 1, note: '情報 +1' }] },
-  { t: 'say', lines: [['艾莉亞', '這條項鍊……還有你收刀的樣子……'], ['凌夜', '妳認得這條項鍊？'], ['艾莉亞', '那個女孩在機器裡，跟我說過你的刀法。'], ['凌夜', '那個女孩……凌音？她在哪裡！'], ['艾莉亞', '你為什麼……沒有保護好她？']] },
+  { t: 'say', lines: [['', '艾莉亞跌坐在地上。她看著凌夜收回爪刃的動作，和他外套內側露出的那截紅色緞帶。']] },
+  { t: 'choice', opts: [{ text: '沒事了，前爪給我。我不是來抓妳的。', who: 'aria', note: '艾莉亞 好感 +1' }, { text: '說，妳身上為什麼有政府編號？', info: 1, note: '情報 +1' }] },
+  { t: 'say', lines: [['艾莉亞', '那條緞帶……還有你收爪的樣子……'], ['凌夜', '妳認得這條緞帶？'], ['艾莉亞', '那隻小貓在機器裡，跟我說過你的爪子。'], ['凌夜', '哪隻小貓……她是誰？她在哪裡！'], ['艾莉亞', '你為什麼……沒有保護好她？']] },
   { t: 'end' },
 ];
-const NAMECOL = { '凌音': '#ffe2c8', '媽媽': '#d8d0c8', '凌夜': '#9fe8ff', '澪': '#d8c8ff', '夏凜': '#bfefff', '艾莉亞': '#ffd6e0', '': '#c9c0c4' };
+const NAMECOL = { '？？？': '#ffb3c0', '凌音': '#ffe2c8', '媽媽': '#d8d0c8', '凌夜': '#9fe8ff', '澪': '#d8c8ff', '夏凜': '#bfefff', '艾莉亞': '#ffd6e0', '': '#c9c0c4' };
 // 章末：不顯示數字，只用模糊的一兩句話暗示選擇留下的痕跡（Gabi 2026-10-17）
 function endLines() {
   const a = story.aff, top = Math.max(a.mio, a.xialin, a.aria), out = [];
-  const L = { mio: '耳機那頭的聲音，好像比平常更近了一點。', xialin: '夏凜一路上，再也沒提過逮捕的事。', aria: '昏過去的艾莉亞，還緊緊抓著你的袖子。' };
+  const L = { mio: '耳機那頭的聲音，好像比平常更近了一點。', xialin: '夏凜一路上，再也沒提過逮捕的事。', aria: '昏過去的艾莉亞，還緊緊抓著你的外套。' };
   if (top > 0) for (const k of ['aria', 'xialin', 'mio']) if (a[k] === top && out.length < 2) out.push(L[k]);
   if (!out.length) out.push('沒有人知道你在想什麼。包括你自己。');
   if (story.money > 0) out.push('口袋裡多了一點錢，心裡卻沒有比較踏實。');
   else if (story.info > 0) out.push('你記住了她身上那串編號。');
-  out.push('項鍊比出發時，亮了一點。');
+  out.push('外套內側的緞帶，好像比剛撿到時更溫熱了一點。');
   return out.slice(0, 3);
 }
 function storySave() { try { return JSON.parse(localStorage.getItem('echorend-ch1') || 'null'); } catch (e) { return null; } }
@@ -1455,7 +1459,7 @@ function updStory(rdt) {
   const st = CH1[story.i]; if (!st) return;
   story.t += rdt;
   if (st.t === 'goto') { if (P.x >= st.x) nextStep(); }
-  else if (st.t === 'pickup') { if (Math.abs(P.x - st.x) < 18 && P.ground) { story.frag++; noiseT = 2.5; flash = .3; sfx('execIn'); ring(st.x, FLOOR - 10, '#ffd6dc', 50); nextStep(); } }
+  else if (st.t === 'pickup') { if (Math.abs(P.x - st.x) < 18 && P.ground) { if (st.item === 'ribbon') story.ribbon = true; else story.frag++; noiseT = 2.5; flash = .3; sfx('execIn'); ring(st.x, FLOOR - 10, '#ffd6dc', 50); nextStep(); } }
   else if (st.t === 'fight') { if (!enemies.some(e => !e.dead) && !pending.length) { P.hp = Math.min(P.max, P.hp + 20); nextStep(); } }
   else if (st.t === 'boss') {
     if (story.ev === st.ev) { for (const e of enemies) if (e.type === st.type) e.dead = true; P.hp = P.max; slowT = .8; zoom = .07; nextStep(); }
@@ -1535,7 +1539,11 @@ function drawCut(u) {
       ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
       ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.setLineDash([4, 4]); ctx.strokeRect(40, 40, VW - 80, VH - 110); ctx.setLineDash([]);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#8a8296'; ctx.font = `600 9px ${SANS}`;
-      ctx.fillText(`［待生圖 ${sh.img}］`, VW / 2, VH / 2 - 30); ctx.fillStyle = '#c9c0d0'; ctx.font = `10px ${SANS}`; ctx.fillText(sh.desc || '', VW / 2, VH / 2 - 12);
+      ctx.fillText(`［待生圖 ${sh.img}］`, VW / 2, VH / 2 - 36); ctx.fillStyle = '#c9c0d0'; ctx.font = `10px ${SANS}`;
+      const rows = [], maxW = VW - 110; let row = '';                                   // 畫面說明太長就折行
+      for (const ch of (sh.desc || '')) { if (ctx.measureText(row + ch).width > maxW) { rows.push(row); row = ch; } else row += ch; }
+      if (row) rows.push(row);
+      rows.slice(0, 4).forEach((r, i) => ctx.fillText(r, VW / 2, VH / 2 - 18 + i * 14));
     }
   }
   ctx.restore();
@@ -1565,7 +1573,14 @@ function drawStory() {
   }
   const st = CH1[story.i];
   if (story.hint && !story.ui) { ctx.font = '600 10px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#f1eef4'; ctx.fillText(story.hint + ' →', VW / 2, 36); }
-  if (st && st.t === 'pickup' && !story.ui) { const x = st.x - cam; glow(x, FLOOR - 6, 20, 'rgba(255,214,220,.9)', .5 + .3 * Math.sin(T * 4)); ctx.fillStyle = '#f5efe6'; ctx.fillRect(x - 6, FLOOR - 9, 12, 9); ctx.strokeStyle = '#c66'; ctx.lineWidth = .8; ctx.strokeRect(x - 4, FLOOR - 7, 3, 3); ctx.strokeRect(x + 1, FLOOR - 7, 3, 3); }
+  if (st && st.t === 'pickup' && !story.ui) {
+    const x = st.x - cam; glow(x, FLOOR - 6, 20, st.item === 'ribbon' ? 'rgba(255,90,110,.9)' : 'rgba(255,214,220,.9)', .5 + .3 * Math.sin(T * 4));
+    if (st.item === 'ribbon') {                                            // 積水裡的紅色緞帶：兩個小圈＋兩條尾巴
+      ctx.strokeStyle = '#d8323f'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.ellipse(x - 4, FLOOR - 6, 4, 2.5, -.3, 0, 6.283); ctx.ellipse(x + 4, FLOOR - 6, 4, 2.5, .3, 0, 6.283); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, FLOOR - 5); ctx.lineTo(x - 6, FLOOR - 1); ctx.moveTo(x, FLOOR - 5); ctx.lineTo(x + 7, FLOOR - 1); ctx.stroke();
+      ctx.fillStyle = 'rgba(120,160,220,.25)'; ctx.fillRect(x - 14, FLOOR - 1, 28, 1);                                   // 積水反光
+    } else { ctx.fillStyle = '#f5efe6'; ctx.fillRect(x - 6, FLOOR - 9, 12, 9); ctx.strokeStyle = '#c66'; ctx.lineWidth = .8; ctx.strokeRect(x - 4, FLOOR - 7, 3, 3); ctx.strokeRect(x + 1, FLOOR - 7, 3, 3); }
+  }
   const boss = enemies.find(e => e.name && !e.dead && e.state !== 'spawn');
   if (boss && !story.ui) {
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(VW / 2 - 101, VH - 20, 202, 7);
@@ -1581,12 +1596,13 @@ function drawStory() {
     ctx.fillStyle = '#05040a'; ctx.fillRect(0, 0, VW, VH);
     const a = Math.min(1, u.t / 1.2, (u.dur - u.t) / .8); ctx.globalAlpha = Math.max(0, a);
     ctx.fillStyle = '#e9e2d2'; ctx.fillRect(VW / 2 - 70, 50, 140, 110); ctx.fillStyle = '#5a5f6a'; ctx.fillRect(VW / 2 - 62, 58, 124, 86);
-    const fig = (x, h, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, 128 - h, 7, 0, 6.283); ctx.fill(); ctx.fillRect(x - 8, 128 - h + 7, 16, h - 7); };
+    const fig = (x, h, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, 128 - h, 7, 0, 6.283); ctx.fill(); ctx.fillRect(x - 8, 128 - h + 7, 16, h - 7);
+      ctx.beginPath(); ctx.moveTo(x - 7, 128 - h - 2); ctx.lineTo(x - 5, 128 - h - 11); ctx.lineTo(x - 1, 128 - h - 6); ctx.moveTo(x + 7, 128 - h - 2); ctx.lineTo(x + 5, 128 - h - 11); ctx.lineTo(x + 1, 128 - h - 6); ctx.fill(); };   // 貓耳
     fig(VW / 2 - 38, 46, '#2b2f3a'); fig(VW / 2 - 12, 42, '#3a2f3a'); fig(VW / 2 + 14, 36, '#1d2232');
-    ctx.fillStyle = '#5a5f6a'; ctx.beginPath(); ctx.arc(VW / 2 + 40, 128 - 28, 7, 0, 6.283); ctx.fill(); ctx.fillRect(VW / 2 + 32, 128 - 21, 16, 21);   // 空白的人形
-    ctx.strokeStyle = `rgba(255,255,255,${.3 + .3 * Math.sin(u.t * 3)})`; ctx.lineWidth = .8; ctx.setLineDash([2, 2]); ctx.strokeRect(VW / 2 + 30, 128 - 36, 20, 36); ctx.setLineDash([]);
-    ctx.fillStyle = '#c9c0c4'; ctx.font = '10px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillText('凌夜的房間，深夜。牆上的全家福，中間多了一塊人形的空白。', VW / 2, 190);
-    ctx.fillText('他看著空白處，摸了摸脖子上的項鍊，拿起刀出門。', VW / 2, 206);
+    fig(VW / 2 + 40, 28, '#5a5f6a');                                                                   // 空白的小貓形（跟底色同色＝被抹掉）
+    ctx.strokeStyle = `rgba(255,255,255,${.3 + .3 * Math.sin(u.t * 3)})`; ctx.lineWidth = .8; ctx.setLineDash([2, 2]); ctx.strokeRect(VW / 2 + 30, 128 - 40, 20, 40); ctx.setLineDash([]);
+    ctx.fillStyle = '#c9c0c4'; ctx.font = '10px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillText('家裡那張三年前的全家福。爸爸、媽媽、他——中央卻有一塊不自然的空白。', VW / 2, 190);
+    ctx.fillText('爸媽總是說：「我們家一直都只有你。」', VW / 2, 206);
     ctx.fillStyle = '#7a7280'; ctx.font = '8px sans-serif'; ctx.fillText(isTouch ? '點一下繼續' : `${KL('atk')} 繼續`, VW / 2, VH - 16);
     ctx.globalAlpha = 1;
   } else if (u.k === 'card') {
@@ -1611,8 +1627,8 @@ function drawStory() {
   } else if (u.k === 'end') {
     const a = Math.min(1, u.t); ctx.fillStyle = `rgba(3,2,6,${a})`; ctx.fillRect(0, 0, VW, VH);
     ctx.globalAlpha = Math.max(0, Math.min(1, (u.t - .8)));
-    ctx.fillStyle = '#fff'; ctx.font = '900 34px "Noto Serif TC","Songti TC","PMingLiU",serif'; ctx.shadowColor = '#ff3a55'; ctx.shadowBlur = 20; ctx.fillText('餘響', VW / 2, VH / 2 - 30); ctx.shadowBlur = 0;
-    ctx.font = '600 10px sans-serif'; ctx.fillStyle = '#c9c0c4'; ctx.fillText('E C H O R E N D', VW / 2, VH / 2 - 6);
+    ctx.fillStyle = '#fff'; ctx.font = '900 34px "Noto Serif TC","Songti TC","PMingLiU",serif'; ctx.shadowColor = '#ff3a55'; ctx.shadowBlur = 20; ctx.fillText('幻痛之刃', VW / 2, VH / 2 - 30); ctx.shadowBlur = 0;
+    ctx.font = '600 9px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#c9c0c4'; ctx.fillText('2D 貓咪劇情動作遊戲', VW / 2, VH / 2 - 6);
     ctx.font = '10px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = '#e8dfe8';
     ctx.fillText('第一章　完', VW / 2, VH / 2 + 22);
     endLines().forEach((l, i) => ctx.fillText(l, VW / 2, VH / 2 + 44 + i * 16));
@@ -1723,7 +1739,7 @@ function helpHTML() {
     return b.join('　') + (SK.exec ? '<br>界限條打空 → 靠近按 <b>重</b> 斷響' : '');
   }
   return isTouch
-    ? '<b>斬</b> 連打四段（最後一下擊飛）　<b>重</b> 挑空；空中＝下砸<br><b>閃</b> 閃避（剛好躲過攻擊＝完美閃避，慢動作）　<b>擋</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能跳或閃<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>重</b> 發動「斷響」'
+    ? '<b>斬</b> 爪擊連打四段（最後一下擊飛）　<b>重</b> 挑空；空中＝下砸<br><b>閃</b> 閃避（剛好躲過攻擊＝完美閃避，慢動作）　<b>擋</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能跳或閃<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>重</b> 發動「斷響」'
     : `<b>${KL('l')} ${KL('r')}</b> 移動　<b>${KL('jump')}</b> 跳（可二段跳）　<b>${KL('atk')}</b> 斬（連打四段）<br><b>${KL('u')}＋${KL('atk')}</b> 上斬　<b>空中 ${KL('d')}＋${KL('atk')}</b> 下劈（打到會彈起）<br><b>${KL('hvy')}</b> 重：地上挑空、空中下砸　<b>${KL('dodge')}</b> 閃避　<b>${KL('parry')}</b> 彈反<br><i>紅色 !</i> 可以彈反，<i style="color:#ffcc33">黃色 !</i> 只能閃避或跳；剛好閃過＝完美閃避（慢動作）<br>敵人白色「界限條」打空會崩壞 → 靠近按 <b>${KL('hvy')}</b> 發動「斷響」`;
 }
 function showKeys() {
@@ -1742,7 +1758,7 @@ function showTitle() {
   scene = 'title';
   menu.dataset.view = 'title'; menu.dataset.from = 'title';
   const sv = storySave();
-  menu.innerHTML = `<h1>餘響</h1><p class="s">ECHOREND・第一章　空白的照片</p>${sv ? '<button id="mCont">繼續第一章</button>' : ''}<button id="mStory">${sv ? '第一章從頭開始' : '開始第一章'}</button><button id="mGo">戰鬥試玩（波次）</button><button id="mAlt">教學</button>${isTouch ? '' : `<button id="mScheme">按鍵：${presetName(presetOf(KEYS))}（點一下切換）</button><button id="mKeys">按鍵設定</button>`}<div class="help">${helpHTML()}</div>`;
+  menu.innerHTML = `<h1>幻痛之刃</h1><p class="s">第一章　空白的照片</p>${sv ? '<button id="mCont">繼續第一章</button>' : ''}<button id="mStory">${sv ? '第一章從頭開始' : '開始第一章'}</button><button id="mGo">戰鬥試玩（波次）</button><button id="mAlt">教學</button>${isTouch ? '' : `<button id="mScheme">按鍵：${presetName(presetOf(KEYS))}（點一下切換）</button><button id="mKeys">按鍵設定</button>`}<div class="help">${helpHTML()}</div>`;
   if (!isTouch) $('mScheme').onclick = () => {
     const order = ['arrows', 'wasd'].concat(CUSTOM ? ['custom'] : []), cur = presetOf(KEYS);
     if (cur == null) saveCustom();                          // 舊版留下的自訂按鍵 → 先存起來再切
