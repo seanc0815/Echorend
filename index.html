@@ -1353,7 +1353,7 @@ const OPENING = [
   { img: 'o03', desc: '三道金屬刃沿著前爪彈出，淡白色的光沿著爪刃亮起', cam: [[.4, .5, 1.3], [.6, .5, 1.1]], fx: 'flash', dur: 1.8 },
   { img: 'o04', desc: '從七層樓高的招牌一躍而下，後爪踩上牆面翻身，前爪向下一揮', cam: [[.5, .2, 1.1], [.5, .8, 1.3]], fx: 'shake', lines: [['凌夜', '斷響。']] },
   { img: 'o05', desc: '一道白色爪痕劃過黑暗。躲在巷子裡的殘響從中央裂開，沒有血，只有大量黑色碎片從傷口飄出', cam: [[.5, .5, 1.4], [.5, .5, 1.05]], fx: 'flash', lines: [['', '黑色碎片沒有消失。它們在哭。'], ['？？？', '不要忘記我……'], ['？？？', '我不想一個人……'], ['？？？', '好痛……']] },
-  { img: 'o06', desc: '凌夜落在積水裡，閉上眼睛，無數黑色碎片繞著他飄', cam: [[.5, .5, 1.05], [.5, .4, 1.3]], fx: 'glitch', lines: [['', '每殺掉一隻殘響，就會留下不屬於自己的聲音。其他獵手說，那只是怪物死前的雜訊。'], ['', '凌夜從來不相信。因為三年前，他也聽過同樣的聲音。'], ['', '而且那一次——他認得聲音的主人。']] },
+  { img: 'o06', desc: '凌夜落在積水裡，閉上眼睛，無數黑色碎片繞著他飄', cam: [[.5, .5, 1.05], [.5, .4, 1.3]], fx: 'glitch', lines: [['凌夜', '……又是這些聲音。'], ['', '每殺掉一隻殘響，就會留下不屬於自己的聲音。其他獵手說，那只是殘響消散前的雜訊。'], ['', '凌夜從來不相信。因為三年前，他也聽過同樣的聲音。'], ['', '而且那一次——他認得聲音的主人。']] },
 ];
 // 碰到緞帶時閃過的記憶（臉一片空白）
 const MEMORY = [
@@ -1365,17 +1365,20 @@ const CH1 = [
   { t: 'cut', shots: OPENING },
   { t: 'scene', theme: 'alley', x: 150 },
   { t: 'card', title: '第一章　空白的照片', sub: '第七城區・雨夜的後巷', dur: 2.6 },
-  { t: 'say', lines: [['澪', '凌夜！你又發呆了？'], ['凌夜', '沒有。'], ['澪', '你每次說「沒有」的時候，就是有。'], ['凌夜', '澪，任務結束了。'], ['澪', '等等……附近又出現兩個異常訊號。'], ['凌夜', '位置？'], ['澪', '就在你前面的死巷。'], ['凌夜', '看到了。兩隻，不難。'], ['澪', '小心，界防局的人已經在附近了。'], ['凌夜', '三分鐘內解決。']] },
+  { t: 'say', lines: [['凌夜', '……訊號變強了。還有。'], ['凌夜', '出來吧。別浪費我的時間。']] },
   { t: 'unlock', skills: ['hvy'], text: () => `${KL('atk')} 爪擊連打四段　${KL('hvy')} 挑空／空中下砸` },
   { t: 'goto', x: 420, hint: '往右走' },
   { t: 'fight', spawns: [['grunt', 1, 0], ['grunt', 1, .7]] },
-  { t: 'say', lines: [['澪', '還有一個訊號……就在你正前方。'], ['凌夜', '前面什麼都沒有，只有一堵牆。妳的情報是不是又錯了？'], ['澪', '我的情報從來不會錯。'], ['凌夜', '上次妳說目標在三樓。我跳進去，裡面是女澡堂。'], ['澪', '……那次是意外。'], ['凌夜', '妳笑了。'], ['澪', '我沒有。']] },
+  { t: 'say', lines: [['澪', '凌夜！你又在發呆了？'], ['凌夜', '沒有。'], ['澪', '你每次說「沒有」的時候，就是有。'], ['凌夜', '任務結束了。我要回去。'], ['澪', '先別走。附近又出現一個異常訊號。'], ['凌夜', '位置？'], ['澪', '就在你前面。'], ['', '前方只有一堵被雨水沖刷的舊牆。'], ['凌夜', '妳的情報是不是又錯了？'], ['澪', '我的情報從來不會錯。'], ['凌夜', '上次妳說目標在三樓。'], ['澪', '……那次是意外。'], ['凌夜', '我從三樓跳進去，裡面是女澡堂。'], ['', '耳機裡沉默兩秒，接著傳來澪壓不住的笑聲。'], ['澪', '我沒有笑。'], ['凌夜', '妳明明就有。'], ['澪', '你現在有空跟我吵架，代表狀態還不錯。看一下牆面，訊號就在那附近。'], ['凌夜', '這裡什麼都沒有。'], ['澪', '儀器不會憑空讀到訊號。小心一點。']] },
   { t: 'choice', opts: [{ text: '謝啦澪，每次都靠妳盯梢。', who: 'mio', note: '澪 好感 +1' }, { text: '賞金記得明天匯給我。', money: 500, note: '賞金 +500' }] },
+  { t: 'say', lines: [['', '凌夜轉身準備離開——右前爪忽然傳來尖銳的刺痛。爪套沒有故障，痛的是爪子本身。'], ['凌夜', '……又來了。'], ['澪', '凌夜？你怎麼了？'], ['凌夜', '沒事。'], ['澪', '你最好不是又打算自己硬撐。']] },
   { t: 'pickup', x: 600, hint: '積水中央有東西', item: 'ribbon' },
-  { t: 'say', lines: [['', '右前爪突然刺痛。爪套沒有故障，痛的是爪子本身——像有一條看不見的線，纏住了骨頭。'], ['', '剛才殘響消失的位置，只剩下一條很舊的紅色緞帶。']] },
+  { t: 'say', lines: [['', '剛才殘響消失的位置，只剩下一條很舊的紅色緞帶。'], ['凌夜', '這個……']] },
   { t: 'cut', shots: MEMORY },
+  { t: 'say', lines: [['澪', '凌夜！回答我！'], ['凌夜', '……我聽到了。'], ['澪', '聽到什麼？'], ['凌夜', '不知道。'], ['澪', '你手上拿著什麼？'], ['凌夜', '一條緞帶。'], ['澪', '紅色的？'], ['凌夜', '……妳怎麼知道？'], ['澪', '我只是猜的。把它收好，先離開那裡。'], ['', '澪的語氣比剛才僵硬。凌夜沒有追問，把緞帶收進外套內側。'], ['凌夜', '澪。'], ['澪', '嗯？'], ['凌夜', '三年前，我到底忘了什麼？'], ['', '耳機另一端只剩下細微的電流聲。'], ['澪', '……等你找到答案的時候，希望你還能承受它。'], ['凌夜', '這不是回答。'], ['澪', '我知道。']] },
   { t: 'photo' },
-  { t: 'say', lines: [['澪', '……凌夜？你怎麼了？'], ['凌夜', '沒事。'], ['澪', '真的？'], ['凌夜', '嗯。'], ['', '他把緞帶收進外套內側。遠處，淨化塔頂的螢幕正在播放城市宣傳——'], ['', '「忘記痛苦，才能擁抱明天。」'], ['', '每次看到這句話，他的爪子都會痛。就像身體在提醒他：有些東西，他絕對不能忘記。即使他已經不知道，那究竟是什麼。']] },
+  { t: 'say', lines: [['', '遠處，第七城區最高的白色淨化塔依然亮著。塔頂的螢幕播放著城市宣傳：居民彼此擁抱，笑得很幸福。'], ['廣播', '忘記痛苦，才能擁抱明天。淨化網，陪伴每一位市民重新開始。'], ['路人', '自從做過淨化，我終於能睡個好覺了。'], ['路人', '是啊。沒必要一直抓著難過的事不放嘛。'], ['', '居民們笑著走遠。凌夜低頭看著自己的右爪，疼痛仍未消退。'], ['凌夜', '如果真的不重要……'], ['凌夜', '為什麼我連忘記了誰，都會痛成這樣？'], ['澪', '凌夜，你還在線上嗎？'], ['凌夜', '在。'], ['澪', '我會查那個異常訊號。你先回去，別再擅自行動。'], ['凌夜', '我什麼時候聽過妳的？'], ['澪', '所以我才要多說幾次。'], ['', '有些東西，他絕對不能忘記。即使他已經不知道，那究竟是什麼。']] },
+  { t: 'card', title: '取得線索：紅色緞帶', sub: '第一章第一節完', dur: 2.6 },
   { t: 'scene', theme: 'lot', x: 150 },
   { t: 'card', title: '冰爪突襲', sub: '牆後的廢棄停車場', dur: 2.2 },
   { t: 'say', lines: [['夏凜', '非法獵人，把爪刃收起來。'], ['凌夜', '……我趕時間，爪子很痛。讓開。'], ['夏凜', '照規定，你得跟我走。'], ['凌夜', '那就先抓中我。']] },
@@ -1405,12 +1408,12 @@ const CH1 = [
   { t: 'card', title: '一號實驗體', sub: '裂縫最底層・廢棄實驗室遺跡', dur: 2.6 },
   { t: 'say', lines: [['艾莉亞', '不要過來……我不要回機器裡！'], ['夏凜', '這隻白貓是誰？能量太恐怖了！'], ['凌夜', '她身上有實驗體編號……先打醒她！']] },
   { t: 'boss', type: 'aria', ev: 'ariaDone' },
-  { t: 'say', lines: [['', '艾莉亞跌坐在地上。她看著凌夜收回爪刃的動作，和他外套內側露出的那截紅色緞帶。']] },
+  { t: 'say', lines: [['', '艾莉亞跌坐在地上，看著凌夜收回爪刃的動作。'], ['艾莉亞', '你……右爪會痛嗎？'], ['凌夜', '妳知道斷響？'], ['艾莉亞', '我不知道這個名字。但我記得那道光。']] },
   { t: 'choice', opts: [{ text: '沒事了，前爪給我。我不是來抓妳的。', who: 'aria', note: '艾莉亞 好感 +1' }, { text: '說，妳身上為什麼有政府編號？', info: 1, note: '情報 +1' }] },
-  { t: 'say', lines: [['艾莉亞', '那條緞帶……還有你收爪的樣子……'], ['凌夜', '妳認得這條緞帶？'], ['艾莉亞', '那隻小貓在機器裡，跟我說過你的爪子。'], ['凌夜', '哪隻小貓……她是誰？她在哪裡！'], ['艾莉亞', '你為什麼……沒有保護好她？']] },
+  { t: 'say', lines: [['凌夜', '妳到底認識誰？'], ['艾莉亞', '我不知道。可是看見你的時候，我覺得自己好像……等了很久。'], ['', '她的視線停在凌夜外套內側露出的那截紅色緞帶上。'], ['艾莉亞', '……那條緞帶。'], ['凌夜', '妳認得？'], ['艾莉亞', '不認得。可是好難過……為什麼會這麼難過？'], ['', '艾莉亞昏倒在凌夜懷裡。']] },
   { t: 'end' },
 ];
-const NAMECOL = { '？？？': '#ffb3c0', '凌音': '#ffe2c8', '媽媽': '#d8d0c8', '凌夜': '#9fe8ff', '澪': '#d8c8ff', '夏凜': '#bfefff', '艾莉亞': '#ffd6e0', '': '#c9c0c4' };
+const NAMECOL = { '？？？': '#ffb3c0', '廣播': '#b8c8d8', '路人': '#b8b0a8', '凌音': '#ffe2c8', '媽媽': '#d8d0c8', '凌夜': '#9fe8ff', '澪': '#d8c8ff', '夏凜': '#bfefff', '艾莉亞': '#ffd6e0', '': '#c9c0c4' };
 // 章末：不顯示數字，只用模糊的一兩句話暗示選擇留下的痕跡（Gabi 2026-10-17）
 function endLines() {
   const a = story.aff, top = Math.max(a.mio, a.xialin, a.aria), out = [];
@@ -1555,12 +1558,19 @@ function drawCut(u) {
     const g = ctx.createLinearGradient(0, VH - 80, 0, VH - 18); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.8)');
     ctx.fillStyle = g; ctx.fillRect(0, VH - 80, VW, 62);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    if (name) { ctx.font = `900 10px ${SERIF}`; ctx.fillStyle = NAMECOL[name] || '#fff'; ctx.fillText(name, VW / 2, VH - 50); }
+    if (name) { ctx.font = `900 10px ${SERIF}`; ctx.fillStyle = NAMECOL[name] || '#fff'; ctx.fillText(name, VW / 2, VH - 56); }
     ctx.font = `12px ${SANS}`; ctx.fillStyle = name ? '#fff' : '#d8d0dc'; ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
-    ctx.fillText(shown, VW / 2, VH - 33); ctx.shadowBlur = 0;
+    const rows = wrapRows(shown, VW - 60, 2), y0 = name ? VH - 42 : (rows.length > 1 ? VH - 46 : VH - 36);
+    rows.forEach((r, i) => ctx.fillText(r, VW / 2, y0 + i * 14)); ctx.shadowBlur = 0;
     if (u.ch >= line.length && Math.floor(T * 3) % 2) { ctx.textAlign = 'right'; ctx.font = `9px ${SANS}`; ctx.fillStyle = '#9fe8ff'; ctx.fillText('▼', VW - 20, VH - 30); }
   }
   if (!isTouch) { ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = `8px ${SANS}`; ctx.fillStyle = '#6a6274'; ctx.fillText(`${KL('dodge')} 跳過`, VW - 10, 9); }
+}
+function wrapRows(str, maxW, max = 3) {        // 依目前的 ctx.font 把字串折成幾行
+  const rows = []; let row = '';
+  for (const ch of str) { if (row && ctx.measureText(row + ch).width > maxW) { rows.push(row); row = ch; } else row += ch; }
+  if (row) rows.push(row);
+  return rows.slice(0, max);
 }
 function drawStory() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1617,8 +1627,10 @@ function drawStory() {
     ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1; ctx.strokeRect(30, VH - 76, VW - 60, 62);
     if (u.k === 'say') {
       const [name, line] = u.lines[u.i], shown = line.slice(0, Math.floor(u.ch));
-      if (name) { ctx.textAlign = 'left'; ctx.font = '900 10px "Noto Serif TC","Songti TC","PMingLiU",serif'; ctx.fillStyle = NAMECOL[name] || '#fff'; ctx.fillText(name, 42, VH - 62); }
-      ctx.textAlign = 'left'; ctx.font = '11px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = name ? '#f1eef4' : '#c9c0c4'; ctx.fillText(shown, 42, VH - 42);
+      if (name) { ctx.textAlign = 'left'; ctx.font = '900 10px "Noto Serif TC","Songti TC","PMingLiU",serif'; ctx.fillStyle = NAMECOL[name] || '#fff'; ctx.fillText(name, 42, VH - 64); }
+      ctx.textAlign = 'left'; ctx.font = '11px "PingFang TC","Microsoft JhengHei",sans-serif'; ctx.fillStyle = name ? '#f1eef4' : '#c9c0c4';
+      const rows = wrapRows(shown, VW - 96, 3), y0 = name ? VH - 48 : VH - 60;
+      rows.forEach((r, i) => ctx.fillText(r, 42, y0 + i * 13));
       if (u.ch >= line.length && Math.floor(T * 3) % 2) { ctx.textAlign = 'right'; ctx.fillStyle = '#9fe8ff'; ctx.fillText('▼', VW - 40, VH - 24); }
     } else {
       ctx.textAlign = 'left'; ctx.font = '11px "PingFang TC","Microsoft JhengHei",sans-serif';
